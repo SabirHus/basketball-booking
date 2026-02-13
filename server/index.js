@@ -1,16 +1,19 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
-
 const app = express();
+
+// Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Allows server to read JSON data
 
 app.get('/', (req, res) => {
     res.send('Basketball Booking Backend is Running!');
 });
 
-const PORT = process.env.PORT || 5000;
+// ROUTES
+app.use('/auth', require('./routes/authRoutes')); // ADD THIS LINE
+
+const PORT = 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
