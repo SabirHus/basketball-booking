@@ -1,35 +1,56 @@
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// --- VITE FIX: Use Online Icons ---
-// This prevents "Module not found" errors for local images
-delete L.Icon.Default.prototype._getIconUrl;
+// --- Fix for missing marker icons ---
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
 });
-// ----------------------------------
+
+L.Marker.prototype.options.icon = DefaultIcon;
+// ------------------------------------
 
 const CourtMap = () => {
-  const position = [53.4875, -2.2748]; // Salford Coordinates
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  useEffect(() => {
+    // 1. Initialize Map only if it doesn't exist
+    if (!mapInstanceRef.current && mapContainerRef.current) {
+      mapInstanceRef.current = L.map(mapContainerRef.current).setView([53.4875, -2.2748], 13);
+
+      // 2. Add OpenStreetMap Tiles (Free)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapInstanceRef.current);
+
+      // 3. Add a Marker
+      L.marker([53.4875, -2.2748])
+        .addTo(mapInstanceRef.current)
+        .bindPopup('<b>University of Salford</b><br>Basketball Court')
+        .openPopup();
+    }
+
+    // Cleanup when leaving page
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
   return (
-    <MapContainer 
-      center={position} 
-      zoom={13} 
-      style={{ height: "400px", width: "100%", zIndex: "0" }} 
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Marker position={position}>
-        <Popup>University of Salford</Popup>
-      </Marker>
-    </MapContainer>
+    <div 
+      ref={mapContainerRef} 
+      style={{ height: "400px", width: "100%", borderRadius: "10px", zIndex: 0 }} 
+    />
   );
 };
 

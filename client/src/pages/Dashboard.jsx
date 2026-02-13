@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import CourtMap from "../components/CourtMap"; // Import the map
+import CourtMap from "../components/CourtMap";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -9,19 +9,14 @@ const Dashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
+    // If not logged in, kick them out
     if (!token) {
       navigate("/");
     } else {
-      // FIX: We wrap this in a helper function to simulate an API call.
-      // In the future, this will be a real `await axios.get(...)` call.
-      const fetchUserData = async () => {
-        // Simulate a tiny delay (network request) to satisfy the linter
-        setTimeout(() => {
-           setUser({ username: "Baller" }); // Placeholder name
-        }, 100);
-      };
-
-      fetchUserData();
+      // Mock API call to get user info (We will replace this with real axios later)
+      setTimeout(() => {
+         setUser({ username: "Baller" }); 
+      }, 100);
     }
   }, [navigate]);
 
@@ -31,24 +26,43 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="dashboard-container">
-      <h1>Welcome to the Court, {user?.username}! 🏀</h1>
+    <div className="dashboard-container" style={{ padding: "20px", fontFamily: "Arial" }}>
+      {/* HEADER */}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <h1>Welcome, {user?.username}! 🏀</h1>
+        <button onClick={handleLogout} style={{ background: "#ff4d4d", color: "white", padding: "10px 20px", border: "none", borderRadius: "5px", cursor: "pointer" }}>
+          Log Out
+        </button>
+      </header>
       
-      <div className="stats-panel">
-        <div className="card">
-          <h3>Your Games</h3>
-          <p>0 Upcoming</p>
+      {/* MAIN GRID */}
+      <div className="main-content" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
+        
+        {/* LEFT COLUMN: Map & Actions */}
+        <div className="map-section">
+          <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
+             <button style={{ flex: 1, padding: "15px", background: "#333", color: "white", border: "none", borderRadius: "5px", fontSize: "16px", cursor: "pointer" }}>
+                🔍 Find a Game
+             </button>
+             <button style={{ flex: 1, padding: "15px", background: "#007bff", color: "white", border: "none", borderRadius: "5px", fontSize: "16px", cursor: "pointer" }}>
+                ➕ Host a Game
+             </button>
+          </div>
+          <CourtMap />
         </div>
-        <div className="card">
-          <h3>Reputation</h3>
-          <p>⭐⭐⭐⭐⭐ (New)</p>
-        </div>
-      </div>
 
-      <div className="actions">
-        <button className="btn-primary">Find a Game</button>
-        <button className="btn-secondary">Host a Game</button>
-        <button onClick={handleLogout} className="btn-danger">Log Out</button>
+        {/* RIGHT COLUMN: Stats */}
+        <div className="stats-section">
+          <div className="card" style={{ background: "#f4f4f4", padding: "20px", borderRadius: "10px", marginBottom: "20px" }}>
+            <h3>📅 Your Schedule</h3>
+            <p>No upcoming games.</p>
+          </div>
+          <div className="card" style={{ background: "#fff3cd", padding: "20px", borderRadius: "10px" }}>
+             <h3>🏆 Reputation</h3>
+             <p>⭐⭐⭐⭐⭐ (New)</p>
+          </div>
+        </div>
+
       </div>
     </div>
   );
