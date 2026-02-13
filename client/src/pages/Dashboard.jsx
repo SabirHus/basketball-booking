@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-// import axios from "axios"; // We will use this later
+import CourtMap from "../components/CourtMap"; // Import the map
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
