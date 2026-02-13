@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const gameRoutes = require("./routes/gameRoutes");
 const app = express();
 
 // Middleware
@@ -12,6 +13,7 @@ app.get('/', (req, res) => {
 
 // ROUTES
 app.use('/auth', require('./routes/authRoutes')); // ADD THIS LINE
+app.use("/games", gameRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => {
