@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios"; // Don't forget this!
 import CourtMap from "../components/CourtMap";
-import HostGameModal from "../components/HostGameModal"; // Import the Modal
+import HostGameModal from "../components/HostGameModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
+  const [games, setGames] = useState([]); // Store the list of games here
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
   
   const navigate = useNavigate();
 
-  useEffect(() => {
+  // 1. Fetch Games from Database
+  const fetchGames = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/games/all");
+      setGames(res.data); // Save to state
+      console.log("Games loaded:", res.data);
+    } catch (err) {
+      console.error("Error loading games:", err);
+    }
+  };
+
+ useEffect(() => {
     const token = localStorage.getItem("token");
 
     // If not logged in, kick them out
@@ -29,15 +42,14 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  // 1. Function called when user clicks the map
   const handleMapClick = (coords) => {
     setClickedCoords(coords);
     setIsModalOpen(true);
   };
 
-  // 2. Function called after successful hosting
+  // Refresh map after hosting
   const refreshMap = () => {
-    console.log("Game hosted! We will load pins here in the next step.");
+    fetchGames(); // <--- Re-fetch so the new pin appears instantly
   };
 
   return (
@@ -51,23 +63,30 @@ const Dashboard = () => {
       
       <div className="main-content" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
         
-        {/* Map Section */}
         <div className="map-section">
           <h3>Click on the map to host a game! 👇</h3>
-          <CourtMap onMapClick={handleMapClick} />
+          {/* Pass the games list to the map */}
+          <CourtMap onMapClick={handleMapClick} games={games} />
         </div>
 
-        {/* Stats Section */}
         <div className="stats-section">
           <div className="card" style={{ background: "#f4f4f4", padding: "20px", borderRadius: "10px" }}>
-            <h3>📅 Upcoming Games</h3>
-            <p>No games yet.</p>
+            <h3>📅 Active Games</h3>
+            {games.length === 0 ? <p>No games yet.</p> : (
+                <ul>
+                    {games.map(g => (
+                        <li key={g.game_id}>
+                            <b>{g.court_name}</b> <br/>
+                            <small>{new Date(g.date_time).toLocaleDateString()}</small>
+                        </li>
+                    ))}
+                </ul>
+            )}
           </div>
         </div>
 
       </div>
 
-      {/* POP-UP MODAL */}
       {isModalOpen && (
         <HostGameModal 
             coords={clickedCoords} 
