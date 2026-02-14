@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -11,6 +11,10 @@ const Register = () => {
   });
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "Join the Squad - CourtLink";
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

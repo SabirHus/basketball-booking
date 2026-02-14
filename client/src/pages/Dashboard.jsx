@@ -12,6 +12,10 @@ const Dashboard = () => {
   
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = "Dashboard - CourtLink";
+  }, []);
+
   const fetchGames = async () => {
     try {
       const res = await axios.get("http://localhost:5000/games/all");

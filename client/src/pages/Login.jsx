@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -9,6 +9,10 @@ const Login = () => {
   });
 
   const navigate = useNavigate();
+
+    useEffect(() => {
+    document.title = "Login - CourtLink";
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
