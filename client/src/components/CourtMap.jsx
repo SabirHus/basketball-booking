@@ -1,78 +1,189 @@
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import CourtMap from "../components/CourtMap";
+import HostGameModal from "../components/HostGameModal";
 
-// --- Icon Fix ---
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+const Dashboard = () => {
+  const [user, setUser] = useState(null);
+  const [games, setGames] = useState([]); 
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [clickedCoords, setClickedCoords] = useState(null);
+  
+  // NEW STATE FOR SEARCH
+  const [searchQuery, setSearchQuery] = useState(""); 
+  const [searchLocation, setSearchLocation] = useState(null);
 
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-// ----------------
+  const navigate = useNavigate();
 
-const CourtMap = ({ onMapClick, games = [] }) => { 
-  const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markersLayerRef = useRef(null); // Holds the pins
-
-  // 1. Initialize Map (Runs once)
-  useEffect(() => {
-    if (!mapInstanceRef.current && mapContainerRef.current) {
-      const map = L.map(mapContainerRef.current).setView([53.4875, -2.2748], 13);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-
-      // Create a "Layer Group" to hold our game markers
-      markersLayerRef.current = L.layerGroup().addTo(map);
-
-      map.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        if (onMapClick) onMapClick({ lat, lng });
-      });
-
-      mapInstanceRef.current = map;
+  const fetchGames = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/games/all");
+      setGames(res.data);
+      if (selectedGame) {
+        const updated = res.data.find(g => g.game_id === selectedGame.game_id);
+        if (updated) setSelectedGame(updated);
+      }
+    } catch (err) {
+      console.error("Error loading games:", err);
     }
-  }, []);
+  };
 
-  // 2. Render Markers (Runs whenever 'games' changes)
   useEffect(() => {
-    if (mapInstanceRef.current && markersLayerRef.current) {
-      // Clear old pins to avoid duplicates
-      markersLayerRef.current.clearLayers();
-
-      // Loop through games and add new pins
-      games.forEach((game) => {
-        const popupContent = `
-          <div style="min-width: 150px">
-            <h3>🏀 ${game.court_name}</h3>
-            <p><b>Level:</b> ${game.skill_level}</p>
-            <p><b>Time:</b> ${new Date(game.date_time).toLocaleString()}</p>
-            <button style="width:100%; background:#007bff; color:white; border:none; padding:5px; border-radius:3px">
-              Join Game
-            </button>
-          </div>
-        `;
-
-        L.marker([game.latitude, game.longitude])
-          .bindPopup(popupContent)
-          .addTo(markersLayerRef.current);
-      });
+    document.title = "Dashboard - CourtLink";
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/");
+    } else {
+      setUser({ username: "Baller" }); 
+      fetchGames(); 
     }
-  }, [games]); // <--- Dependency: Run this when games data updates
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
+  // --- NEW SEARCH FUNCTION ---
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery) return;
+    
+    try {
+        // Use OpenStreetMap Nominatim API (Free)
+        const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${searchQuery}`);
+        
+        if (res.data && res.data.length > 0) {
+            const firstResult = res.data[0];
+            setSearchLocation({ lat: firstResult.lat, lon: firstResult.lon });
+        } else {
+            alert("Location not found!");
+        }
+    } catch (err) {
+        console.error("Search error:", err);
+    }
+  };
+
+  const handleMapClick = (data) => {
+    if (data.game) {
+        setSelectedGame(data.game);
+        setClickedCoords(null); 
+    } else {
+        setClickedCoords(data);
+        setSelectedGame(null);
+        setIsModalOpen(true);
+    }
+  };
+
+  const handleJoinGame = async () => {
+    if (!selectedGame) return;
+    try {
+        const token = localStorage.getItem("token");
+        await axios.post(`http://localhost:5000/games/join/${selectedGame.game_id}`, {}, {
+            headers: { token: token }
+        });
+        alert("✅ You have joined the game!");
+        fetchGames(); 
+    } catch (err) {
+        alert(err.response?.data || "Error joining game");
+    }
+  };
+
+  const refreshMap = () => {
+    fetchGames(); 
+  };
 
   return (
-    <div 
-      ref={mapContainerRef} 
-      style={{ height: "400px", width: "100%", borderRadius: "10px", zIndex: 0, cursor: "crosshair" }} 
-    />
+    <div className="container">
+      <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0" }}>
+        <h1 style={{ color: "#ff5722", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>
+          🏀 CourtLink <span style={{fontSize:"0.5em", color:"#888", fontWeight: "normal"}}>v1.0</span>
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <span style={{ fontWeight: "600", color: "#2d3436" }}>Hello, {user?.username}</span>
+          <button onClick={handleLogout} className="btn btn-danger">Log Out</button>
+        </div>
+      </header>
+      
+      <div className="dashboard-grid">
+        
+        {/* LEFT: MAP WITH SEARCH BAR */}
+        <div className="map-wrapper" style={{position: "relative"}}>
+            
+            {/* SEARCH BAR OVERLAY */}
+            <form onSubmit={handleSearch} style={{
+                position: "absolute", 
+                top: "10px", 
+                left: "50px", 
+                zIndex: 999, 
+                background: "white", 
+                padding: "5px", 
+                borderRadius: "8px", 
+                boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                display: "flex",
+                gap: "5px"
+            }}>
+                <input 
+                    type="text" 
+                    placeholder="Search location..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{border: "none", outline: "none", padding: "8px"}}
+                />
+                <button type="submit" className="btn btn-primary" style={{padding: "8px 12px"}}>🔍</button>
+            </form>
+
+          <CourtMap onMapClick={handleMapClick} games={games} searchLocation={searchLocation} />
+        </div>
+
+        {/* RIGHT: SIDEBAR */}
+        <aside>
+          <div className="card">
+            {selectedGame ? (
+                <div style={{animation: "fadeIn 0.3s"}}>
+                    <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"#999", marginBottom:"10px"}}>← Back</button>
+                    <h2 style={{color: "#ff5722", margin: "0 0 10px 0"}}>{selectedGame.court_name}</h2>
+                    <p><b>Host:</b> {selectedGame.username}</p>
+                    <p><b>Level:</b> {selectedGame.skill_level}</p>
+                    <p><b>Time:</b> {new Date(selectedGame.date_time).toLocaleString()}</p>
+                    
+                    <div style={{background: "#eee", padding: "10px", borderRadius: "8px", margin: "20px 0", textAlign:"center"}}>
+                        <h3 style={{margin:0, fontSize:"2em"}}>{selectedGame.player_count || 0}</h3>
+                        <small>Players Joined</small>
+                    </div>
+
+                    <button onClick={handleJoinGame} className="btn btn-primary" style={{width: "100%"}}>
+                        Join This Game 🏀
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <h3 style={{ borderBottom: "2px solid #ff5722" }}>📅 How to Book</h3>
+                    <div style={{ color: "#666", lineHeight: "1.6" }}>
+                        <p>1. <b>Search or Scroll</b> to find a court.</p>
+                        <p>2. <b>Click a Blue Pin</b> 📍 to see game details.</p>
+                        <p>3. <b>Hit "Join Game"</b> to reserve your spot.</p>
+                        <hr style={{margin: "20px 0", borderTop: "1px solid #eee"}}/>
+                        <p><b>Want to host?</b> Click anywhere on the map to drop a new pin!</p>
+                    </div>
+                </>
+            )}
+          </div>
+        </aside>
+
+      </div>
+
+      {isModalOpen && clickedCoords && (
+        <HostGameModal 
+            coords={clickedCoords} 
+            onClose={() => setIsModalOpen(false)}
+            onGameHosted={refreshMap}
+        />
+      )}
+    </div>
   );
 };
 
-export default CourtMap;
+export default Dashboard;
