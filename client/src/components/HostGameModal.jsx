@@ -24,8 +24,8 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
       });
 
       alert("Game Hosted Successfully! 🏀");
-      onGameHosted(); // Refresh the map
-      onClose(); // Close the modal
+      onGameHosted(); 
+      onClose(); 
     } catch (err) {
       console.error(err);
       alert("Error hosting game. Check console.");
@@ -33,61 +33,60 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
   };
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        <h2>Host a Game 📍</h2>
-        <p>Location: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <div className="flex-between" style={{ marginBottom: "20px" }}>
+           <h2 style={{ margin: 0 }}>Host a Game 📍</h2>
+           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:"1.5em", cursor:"pointer" }}>&times;</button>
+        </div>
         
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <input
-            type="text"
-            placeholder="Court Name (e.g. Peel Park)"
-            required
-            style={styles.input}
-            onChange={(e) => setFormData({...formData, courtName: e.target.value})}
-          />
-          <input
-            type="datetime-local"
-            required
-            style={styles.input}
-            onChange={(e) => setFormData({...formData, date: e.target.value})}
-          />
-          <select 
-            style={styles.input}
-            onChange={(e) => setFormData({...formData, skillLevel: e.target.value})}
-          >
-            <option>All Levels</option>
-            <option>Beginner</option>
-            <option>Intermediate</option>
-            <option>Advanced</option>
-          </select>
+        <p style={{ color: "#666", marginBottom: "20px" }}>
+           Location: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+        </p>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Where are we playing?</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Court Name (e.g. Rucker Park)"
+              required
+              onChange={(e) => setFormData({...formData, courtName: e.target.value})}
+            />
+          </div>
 
-          <div style={styles.buttons}>
-            <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
-            <button type="submit" style={styles.submitBtn}>Confirm Game</button>
+          <div className="form-group">
+             <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>When?</label>
+             <input
+              type="datetime-local"
+              className="form-input"
+              required
+              onChange={(e) => setFormData({...formData, date: e.target.value})}
+            />
+          </div>
+
+          <div className="form-group">
+            <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Skill Level</label>
+            <select 
+              className="form-input"
+              onChange={(e) => setFormData({...formData, skillLevel: e.target.value})}
+            >
+              <option>All Levels</option>
+              <option>Beginner</option>
+              <option>Intermediate</option>
+              <option>Advanced</option>
+            </select>
+          </div>
+
+          <div className="flex-between" style={{ marginTop: "30px" }}>
+            <button type="button" onClick={onClose} className="btn" style={{ background: "#eee", color: "#333" }}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Confirm Game</button>
           </div>
         </form>
       </div>
     </div>
   );
-};
-
-// Simple CSS-in-JS for the modal
-const styles = {
-  overlay: {
-    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.7)", zIndex: 1000,
-    display: "flex", justifyContent: "center", alignItems: "center"
-  },
-  modal: {
-    background: "white", padding: "20px", borderRadius: "10px",
-    width: "300px", textAlign: "center"
-  },
-  form: { display: "flex", flexDirection: "column", gap: "10px" },
-  input: { padding: "10px", borderRadius: "5px", border: "1px solid #ccc" },
-  buttons: { display: "flex", justifyContent: "space-between", marginTop: "10px" },
-  cancelBtn: { background: "#ccc", border: "none", padding: "10px", borderRadius: "5px", cursor: "pointer" },
-  submitBtn: { background: "#007bff", color: "white", border: "none", padding: "10px", borderRadius: "5px", cursor: "pointer" }
 };
 
 export default HostGameModal;

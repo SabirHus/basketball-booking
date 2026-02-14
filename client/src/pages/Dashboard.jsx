@@ -1,39 +1,33 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios"; // Don't forget this!
+import axios from "axios";
 import CourtMap from "../components/CourtMap";
 import HostGameModal from "../components/HostGameModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
-  const [games, setGames] = useState([]); // Store the list of games here
+  const [games, setGames] = useState([]); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
   
   const navigate = useNavigate();
 
-  // 1. Fetch Games from Database
   const fetchGames = async () => {
     try {
       const res = await axios.get("http://localhost:5000/games/all");
-      setGames(res.data); // Save to state
-      console.log("Games loaded:", res.data);
+      setGames(res.data);
     } catch (err) {
       console.error("Error loading games:", err);
     }
   };
 
- useEffect(() => {
+  useEffect(() => {
     const token = localStorage.getItem("token");
-
-    // If not logged in, kick them out
     if (!token) {
       navigate("/");
     } else {
-      // Mock API call to get user info (We will replace this with real axios later)
-      setTimeout(() => {
-         setUser({ username: "Baller" }); 
-      }, 100);
+      setUser({ username: "Baller" }); 
+      fetchGames(); 
     }
   }, [navigate]);
 
@@ -47,47 +41,66 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // Refresh map after hosting
   const refreshMap = () => {
-    fetchGames(); // <--- Re-fetch so the new pin appears instantly
+    fetchGames(); 
   };
 
   return (
-    <div className="dashboard-container" style={{ padding: "20px", fontFamily: "Arial" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-        <h1>Welcome, {user?.username}! 🏀</h1>
-        <button onClick={handleLogout} style={{ background: "#ff4d4d", color: "white", border: "none", padding: "10px", borderRadius: "5px", cursor: "pointer" }}>
-          Log Out
-        </button>
+    <div className="container">
+      {/* HEADER */}
+      <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0" }}>
+        <h1 style={{ color: "#ff5722", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>
+          🏀 CourtLink <span style={{fontSize:"0.5em", color:"#888", fontWeight: "normal"}}>v1.0</span>
+        </h1>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <span style={{ fontWeight: "600", color: "#2d3436" }}>Hello, {user?.username}</span>
+          <button onClick={handleLogout} className="btn btn-danger">
+            Log Out
+          </button>
+        </div>
       </header>
       
-      <div className="main-content" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
+      {/* MAIN GRID LAYOUT */}
+      <div className="dashboard-grid">
         
-        <div className="map-section">
-          <h3>Click on the map to host a game! 👇</h3>
-          {/* Pass the games list to the map */}
+        {/* LEFT: MAP */}
+        <div className="map-wrapper">
           <CourtMap onMapClick={handleMapClick} games={games} />
         </div>
 
-        <div className="stats-section">
-          <div className="card" style={{ background: "#f4f4f4", padding: "20px", borderRadius: "10px" }}>
-            <h3>📅 Active Games</h3>
-            {games.length === 0 ? <p>No games yet.</p> : (
-                <ul>
+        {/* RIGHT: SIDEBAR */}
+        <aside>
+          <div className="card">
+            <h3 style={{ borderBottom: "2px solid #ff5722" }}>📅 Active Games</h3>
+            {games.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "#999" }}>
+                <p style={{fontSize: "2em", margin: "0 0 10px 0"}}>🏀</p>
+                <p>No games active.</p>
+                <small>Click the map to host the first one!</small>
+              </div>
+            ) : (
+                <ul className="game-list">
                     {games.map(g => (
-                        <li key={g.game_id}>
-                            <b>{g.court_name}</b> <br/>
-                            <small>{new Date(g.date_time).toLocaleDateString()}</small>
+                        <li key={g.game_id} className="game-item">
+                            <b style={{color: "#ff5722"}}>{g.court_name}</b>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "5px" }}>
+                                <small style={{background: "#eee", padding: "2px 6px", borderRadius: "4px"}}>
+                                  {g.skill_level}
+                                </small>
+                                <small>{new Date(g.date_time).toLocaleDateString()}</small>
+                            </div>
                         </li>
                     ))}
                 </ul>
             )}
           </div>
-        </div>
+        </aside>
 
       </div>
 
-      {isModalOpen && (
+      {/* SAFE MODAL RENDER */}
+      {isModalOpen && clickedCoords && (
         <HostGameModal 
             coords={clickedCoords} 
             onClose={() => setIsModalOpen(false)}
