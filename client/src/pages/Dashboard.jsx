@@ -5,9 +5,10 @@ import CourtMap from "../components/CourtMap";
 import HostGameModal from "../components/HostGameModal";
 
 const Dashboard = () => {
+  // --- STATE VARIABLES ---
   const [user, setUser] = useState(null);
   const [games, setGames] = useState([]); 
-  const [selectedGame, setSelectedGame] = useState(null); // Which game is clicked?
+  const [selectedGame, setSelectedGame] = useState(null); // Which game is selected?
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
   
@@ -17,12 +18,30 @@ const Dashboard = () => {
 
   const navigate = useNavigate();
 
+  // --- API FUNCTIONS ---
+
+  // 1. Get Real User Name
+  const fetchUser = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/auth/verify", {
+        headers: { token: token }
+      });
+      setUser(res.data); // Sets the real name (e.g. "LeBron")
+    } catch (err) {
+      console.error("Error verifying user:", err);
+      localStorage.removeItem("token");
+      navigate("/");
+    }
+  };
+
+  // 2. Get All Games
   const fetchGames = async () => {
     try {
       const res = await axios.get("http://localhost:5000/games/all");
       setGames(res.data);
       
-      // If we have a selected game, refresh its specific data (like player count)
+      // If a game is currently selected, refresh its data (to update player count)
       if (selectedGame) {
         const updated = res.data.find(g => g.game_id === selectedGame.game_id);
         if (updated) setSelectedGame(updated);
@@ -32,16 +51,19 @@ const Dashboard = () => {
     }
   };
 
+  // --- LIFECYCLE ---
   useEffect(() => {
     document.title = "Dashboard - CourtLink";
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/");
     } else {
-      setUser({ username: "Baller" }); 
-      fetchGames(); 
+      fetchUser();  // <--- FETCH NAME
+      fetchGames(); // <--- FETCH GAMES
     }
   }, [navigate]);
+
+  // --- HANDLERS ---
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -64,14 +86,14 @@ const Dashboard = () => {
     }
   };
 
-  // --- SMART CLICK HANDLER ---
+  // Decide what to do when the map is clicked
   const handleMapClick = (data) => {
     if (data.game) {
-        // CASE A: User clicked a PIN -> Show Details
+        // User clicked a PIN -> Select the game
         setSelectedGame(data.game);
         setClickedCoords(null); 
     } else {
-        // CASE B: User clicked MAP -> Open Host Modal
+        // User clicked MAP -> Open Host Modal
         setClickedCoords(data); 
         setSelectedGame(null);
         setIsModalOpen(true);
@@ -86,7 +108,7 @@ const Dashboard = () => {
             headers: { token: token }
         });
         alert("✅ You have joined the game!");
-        fetchGames(); // Refresh numbers
+        fetchGames(); // Refresh the list to see new player count
     } catch (err) {
         alert(err.response?.data || "Error joining game");
     }
@@ -98,21 +120,28 @@ const Dashboard = () => {
 
   return (
     <div className="container">
+      
+      {/* HEADER */}
       <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0" }}>
         <h1 style={{ color: "#ff5722", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>
           🏀 CourtLink <span style={{fontSize:"0.5em", color:"#888", fontWeight: "normal"}}>v1.0</span>
         </h1>
+        
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <span style={{ fontWeight: "600", color: "#2d3436" }}>Hello, {user?.username}</span>
+          {/* Shows Real Username or "Loading..." */}
+          <span style={{ fontWeight: "600", color: "#2d3436" }}>
+            Hello, {user ? user.username : "Baller"} 
+          </span>
           <button onClick={handleLogout} className="btn btn-danger">Log Out</button>
         </div>
       </header>
       
+      {/* GRID LAYOUT */}
       <div className="dashboard-grid">
         
         {/* LEFT: MAP + SEARCH */}
         <div className="map-wrapper" style={{position: "relative"}}>
-            {/* Floating Search Bar */}
+            {/* Search Bar */}
             <form onSubmit={handleSearch} style={{
                 position: "absolute", top: "10px", left: "50px", zIndex: 999, 
                 background: "white", padding: "5px", borderRadius: "8px", 
@@ -131,11 +160,11 @@ const Dashboard = () => {
           <CourtMap onMapClick={handleMapClick} games={games} searchLocation={searchLocation} />
         </div>
 
-        {/* RIGHT: DYNAMIC SIDEBAR */}
+        {/* RIGHT: SIDEBAR */}
         <aside>
           <div className="card">
             
-            {/* IF A GAME IS SELECTED -> SHOW DETAILS */}
+            {/* VIEW A: GAME DETAILS */}
             {selectedGame ? (
                 <div style={{animation: "fadeIn 0.3s"}}>
                     <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"#999", marginBottom:"10px"}}>← Back</button>
@@ -154,7 +183,7 @@ const Dashboard = () => {
                     </button>
                 </div>
             ) : (
-                /* ELSE -> SHOW INSTRUCTIONS */
+                /* VIEW B: INSTRUCTIONS */
                 <>
                     <h3 style={{ borderBottom: "2px solid #ff5722" }}>📅 How to Book</h3>
                     <div style={{ color: "#666", lineHeight: "1.6" }}>
@@ -172,6 +201,7 @@ const Dashboard = () => {
 
       </div>
 
+      {/* HOST MODAL */}
       {isModalOpen && clickedCoords && (
         <HostGameModal 
             coords={clickedCoords} 
