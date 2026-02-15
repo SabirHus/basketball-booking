@@ -5,12 +5,12 @@ import { useNavigate, Link } from "react-router-dom";
 const Login = () => {
   const [formData, setFormData] = useState({
     email: "",
-    password: "",
+    password: ""
   });
 
   const navigate = useNavigate();
 
-    useEffect(() => {
+  useEffect(() => {
     document.title = "Login - CourtLink";
   }, []);
 
@@ -21,28 +21,33 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Send data to server
       const res = await axios.post("http://localhost:5000/auth/login", formData);
+      
+      // Save the token
       localStorage.setItem("token", res.data.token);
+      
+      // Go to Dashboard
       navigate("/dashboard");
+      
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Login Failed");
+      // Show the specific error message from the server if it exists
+      alert(err.response?.data || "Login Failed");
     }
   };
 
   return (
     <div className="auth-wrapper">
-      {/* Header Bar */}
       <nav className="auth-header">
         <span style={{fontSize: "24px"}}>🏀</span>
         <h1 className="auth-logo">CourtLink</h1>
       </nav>
 
-      {/* Centered Card */}
       <div className="auth-container">
         <div className="auth-card">
           <h2 style={{color: "#ff5722"}}>Welcome Back</h2>
-          <p style={{color: "#666", marginBottom: "30px"}}>Enter your details to find a game.</p>
+          <p style={{color: "#666", marginBottom: "30px"}}>Log in to your account.</p>
           
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -56,6 +61,7 @@ const Login = () => {
                 required
               />
             </div>
+
             <div className="form-group">
               <label style={{fontSize: "0.9em", fontWeight:"bold", color: "#444"}}>Password</label>
               <input
@@ -74,7 +80,7 @@ const Login = () => {
           </form>
 
           <div style={{marginTop: "20px", fontSize: "0.9em"}}>
-            New to CourtLink? <Link to="/register" style={{color: "#ff5722", fontWeight: "bold", textDecoration: "none"}}>Sign Up</Link>
+            New to CourtLink? <Link to="/register" style={{color: "#ff5722", fontWeight: "bold", textDecoration: "none"}}>Create Account</Link>
           </div>
         </div>
       </div>
