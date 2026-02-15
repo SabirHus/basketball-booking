@@ -5,9 +5,10 @@ import CourtMap from "../components/CourtMap";
 import HostGameModal from "../components/HostGameModal";
 
 const Dashboard = () => {
+  // State
   const [user, setUser] = useState(null);
   const [games, setGames] = useState([]); 
-  const [selectedGame, setSelectedGame] = useState(null); // Which game is clicked?
+  const [selectedGame, setSelectedGame] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
   
@@ -17,12 +18,26 @@ const Dashboard = () => {
 
   const navigate = useNavigate();
 
+  // 1. FETCH USER NAME (The new part)
+  const fetchUser = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/auth/verify", {
+        headers: { token: token }
+      });
+      setUser(res.data); // Sets { username: "YourName" }
+    } catch (err) {
+      console.error("Error verifying user:", err);
+      localStorage.removeItem("token");
+      navigate("/");
+    }
+  };
+
+  // 2. FETCH GAMES
   const fetchGames = async () => {
     try {
       const res = await axios.get("http://localhost:5000/games/all");
       setGames(res.data);
-      
-      // If we have a selected game, refresh its specific data (like player count)
       if (selectedGame) {
         const updated = res.data.find(g => g.game_id === selectedGame.game_id);
         if (updated) setSelectedGame(updated);
@@ -38,8 +53,8 @@ const Dashboard = () => {
     if (!token) {
       navigate("/");
     } else {
-      setUser({ username: "Baller" }); 
-      fetchGames(); 
+      fetchUser();  // <--- Call the name fetcher
+      fetchGames(); // <--- Call the game fetcher
     }
   }, [navigate]);
 
@@ -64,14 +79,11 @@ const Dashboard = () => {
     }
   };
 
-  // --- SMART CLICK HANDLER ---
   const handleMapClick = (data) => {
     if (data.game) {
-        // CASE A: User clicked a PIN -> Show Details
         setSelectedGame(data.game);
         setClickedCoords(null); 
     } else {
-        // CASE B: User clicked MAP -> Open Host Modal
         setClickedCoords(data); 
         setSelectedGame(null);
         setIsModalOpen(true);
@@ -86,7 +98,7 @@ const Dashboard = () => {
             headers: { token: token }
         });
         alert("✅ You have joined the game!");
-        fetchGames(); // Refresh numbers
+        fetchGames(); 
     } catch (err) {
         alert(err.response?.data || "Error joining game");
     }
@@ -102,17 +114,18 @@ const Dashboard = () => {
         <h1 style={{ color: "#ff5722", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>
           🏀 CourtLink <span style={{fontSize:"0.5em", color:"#888", fontWeight: "normal"}}>v1.0</span>
         </h1>
+        
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <span style={{ fontWeight: "600", color: "#2d3436" }}>Hello, {user?.username}</span>
+          {/* Display User Name */}
+          <span style={{ fontWeight: "600", color: "#2d3436" }}>
+            Hello, {user ? user.username : "Baller"}
+          </span>
           <button onClick={handleLogout} className="btn btn-danger">Log Out</button>
         </div>
       </header>
       
       <div className="dashboard-grid">
-        
-        {/* LEFT: MAP + SEARCH */}
         <div className="map-wrapper" style={{position: "relative"}}>
-            {/* Floating Search Bar */}
             <form onSubmit={handleSearch} style={{
                 position: "absolute", top: "10px", left: "50px", zIndex: 999, 
                 background: "white", padding: "5px", borderRadius: "8px", 
@@ -127,15 +140,11 @@ const Dashboard = () => {
                 />
                 <button type="submit" className="btn btn-primary" style={{padding: "8px 12px"}}>🔍</button>
             </form>
-
           <CourtMap onMapClick={handleMapClick} games={games} searchLocation={searchLocation} />
         </div>
 
-        {/* RIGHT: DYNAMIC SIDEBAR */}
         <aside>
           <div className="card">
-            
-            {/* IF A GAME IS SELECTED -> SHOW DETAILS */}
             {selectedGame ? (
                 <div style={{animation: "fadeIn 0.3s"}}>
                     <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"#999", marginBottom:"10px"}}>← Back</button>
@@ -143,18 +152,15 @@ const Dashboard = () => {
                     <p><b>Host:</b> {selectedGame.username}</p>
                     <p><b>Level:</b> {selectedGame.skill_level}</p>
                     <p><b>Time:</b> {new Date(selectedGame.date_time).toLocaleString()}</p>
-                    
                     <div style={{background: "#eee", padding: "10px", borderRadius: "8px", margin: "20px 0", textAlign:"center"}}>
                         <h3 style={{margin:0, fontSize:"2em"}}>{selectedGame.player_count || 0}</h3>
                         <small>Players Joined</small>
                     </div>
-
                     <button onClick={handleJoinGame} className="btn btn-primary" style={{width: "100%"}}>
                         Join This Game 🏀
                     </button>
                 </div>
             ) : (
-                /* ELSE -> SHOW INSTRUCTIONS */
                 <>
                     <h3 style={{ borderBottom: "2px solid #ff5722" }}>📅 How to Book</h3>
                     <div style={{ color: "#666", lineHeight: "1.6" }}>
@@ -166,10 +172,8 @@ const Dashboard = () => {
                     </div>
                 </>
             )}
-
           </div>
         </aside>
-
       </div>
 
       {isModalOpen && clickedCoords && (

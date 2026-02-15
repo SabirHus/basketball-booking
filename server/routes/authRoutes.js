@@ -1,10 +1,14 @@
 const router = require("express").Router();
 const authController = require("../controllers/authController");
+const authorize = require("../middleware/authorization"); // Import middleware
 
-// 1. REGISTER (http://localhost:5000/auth/register)
+// POST http://localhost:5000/auth/register
 router.post("/register", authController.register);
 
-// 2. LOGIN (http://localhost:5000/auth/login)
+// POST http://localhost:5000/auth/login
 router.post("/login", authController.login);
+
+// GET http://localhost:5000/auth/verify (Protected)
+router.get("/verify", authorize, authController.getName);
 
 module.exports = router;
