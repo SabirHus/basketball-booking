@@ -1,19 +1,9 @@
 const pool = require("../db");
 
+// 1. HOST A GAME
 exports.hostGame = async (req, res) => {
     try {
-        console.log("--- HOST GAME REQUEST RECEIVED ---");
-        console.log("1. User Data from Token:", req.user); // Check if we know WHO is logged in
-        console.log("2. Game Data:", req.body);            // Check WHAT they are sending
-
         const { courtName, latitude, longitude, date, skillLevel } = req.body;
-        
-        // CRITICAL CHECK: Did the Auth Middleware work?
-        if (!req.user || !req.user.id) {
-            console.error("ERROR: User ID is missing. Authorization middleware failed.");
-            return res.status(401).json({ message: "User not authorized" });
-        }
-
         const host_id = req.user.id;
 
         const newGame = await pool.query(
@@ -21,23 +11,49 @@ exports.hostGame = async (req, res) => {
             [host_id, courtName, latitude, longitude, date, skillLevel]
         );
 
-        console.log("3. Success! Game Saved:", newGame.rows[0]);
         res.json(newGame.rows[0]);
-
     } catch (err) {
-        // THIS WILL PRINT THE REAL ERROR IN YOUR TERMINAL
-        console.error("!!! SERVER CRASH !!!");
         console.error(err.message);
-        res.status(500).send("Server Error: " + err.message);
+        res.status(500).send("Server Error");
     }
 };
 
+// 2. GET ALL GAMES (Updated to include Player Count)
 exports.getAllGames = async (req, res) => {
     try {
-        const allGames = await pool.query(
-            "SELECT games.*, users.username FROM games JOIN users ON games.host_id = users.user_id"
-        );
+        // This SQL query joins users to games AND counts the players in each game
+        const allGames = await pool.query(`
+            SELECT games.*, users.username, 
+            (SELECT COUNT(*) FROM game_players WHERE game_players.game_id = games.game_id) as player_count 
+            FROM games 
+            JOIN users ON games.host_id = users.user_id
+        `);
         res.json(allGames.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send("Server Error");
+    }
+};
+
+// 3. JOIN A GAME (New Feature)
+exports.joinGame = async (req, res) => {
+    try {
+        const { gameId } = req.params; // ID from the URL
+        const userId = req.user.id;    // ID from the Logged in User
+
+        // 1. Check if already joined
+        const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, userId]);
+        if (check.rows.length > 0) {
+            return res.status(400).json("You already joined this game!");
+        }
+
+        // 2. Add to table
+        await pool.query(
+            "INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)",
+            [gameId, userId]
+        );
+
+        res.json("Joined Successfully");
     } catch (err) {
         console.error(err.message);
         res.status(500).send("Server Error");
