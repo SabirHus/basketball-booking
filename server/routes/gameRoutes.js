@@ -2,13 +2,12 @@ const router = require("express").Router();
 const gameController = require("../controllers/gameController");
 const authorize = require("../middleware/authorization");
 
-// POST http://localhost:5000/games/host
 router.post("/host", authorize, gameController.hostGame);
-
-// POST http://localhost:5000/games/join/5  <-- NEW
+router.get("/all", gameController.getAllGames);
 router.post("/join/:gameId", authorize, gameController.joinGame);
 
-// GET http://localhost:5000/games/all
-router.get("/all", gameController.getAllGames);
+router.get("/mygames", authorize, gameController.getMyGames);
+router.delete("/delete/:gameId", authorize, gameController.deleteGame);
+router.delete("/leave/:gameId", authorize, gameController.leaveGame);
 
 module.exports = router;

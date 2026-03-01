@@ -117,8 +117,11 @@ const Dashboard = () => {
         
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           {/* Display User Name */}
-          <span style={{ fontWeight: "600", color: "#2d3436" }}>
-            Hello, {user ? user.username : "Baller"}
+          <span 
+            style={{ fontWeight: "600", color: "#2d3436", cursor: "pointer", textDecoration: "underline" }} 
+            onClick={() => navigate("/profile")}
+          >
+             Hello, {user ? user.username : "Loading..."}
           </span>
           <button onClick={handleLogout} className="btn btn-danger">Log Out</button>
         </div>
