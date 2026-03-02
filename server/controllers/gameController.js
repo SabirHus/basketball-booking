@@ -7,14 +7,18 @@ exports.hostGame = async (req, res) => {
     try {
         const { courtName, latitude, longitude, date, skillLevel, price, maxPlayers } = req.body;
         
+        const finalPrice = price ? parseFloat(price) : 0;
+        const finalMaxPlayers = maxPlayers ? parseInt(maxPlayers) : 10;
+
         const newGame = await pool.query(
             "INSERT INTO games (host_id, court_name, latitude, longitude, date_time, skill_level, price, max_players) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-            [req.user.id, courtName, latitude, longitude, date, skillLevel, price || 0, maxPlayers || 10]
+            [req.user.id, courtName, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers]
         );
-        res.json(newGame.rows);
+        
+        res.json(newGame.rows); // Extracted from the list
     } catch (err) { 
         console.error("Host Error:", err);
-        res.status(500).send("Server Error");
+        res.status(500).send("Server Error"); 
     }
 };
 
@@ -38,7 +42,6 @@ exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
-        // Check capacity
         const gameRes = await pool.query(`
             SELECT max_players, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
@@ -46,13 +49,12 @@ exports.joinGame = async (req, res) => {
         
         if (gameRes.rows.length === 0) return res.status(404).json("Game not found");
         
-        const game = gameRes.rows;
+        const game = gameRes.rows; // Extracted from the list
 
         if (parseInt(game.player_count) >= game.max_players) {
             return res.status(400).json("Game is full!");
         }
 
-        // Check if already joined
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
         if (check.rows.length > 0) return res.status(400).json("You already joined this game!");
 
@@ -70,24 +72,26 @@ exports.createCheckout = async (req, res) => {
         const { gameId } = req.params;
         const userId = req.user.id;
 
-        // Check if already joined
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, userId]);
         if (check.rows.length > 0) return res.status(400).json("Already joined!");
 
-        // Get Game info and verify capacity
         const gameRes = await pool.query(`
             SELECT *, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
         `, [gameId]);
         
         if (gameRes.rows.length === 0) return res.status(404).json("Not found");
-        const game = gameRes.rows;
+        
+        const [game] = gameRes.rows; 
 
         if (parseInt(game.player_count) >= game.max_players) {
             return res.status(400).json("Game is full!");
         }
 
-        // Create Stripe Session
+        // The Math
+        const dbPrice = parseFloat(game.price);
+        const stripePriceInPennies = Math.round(dbPrice * 100);
+
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "payment",
@@ -95,8 +99,7 @@ exports.createCheckout = async (req, res) => {
                 price_data: {
                     currency: "gbp",
                     product_data: { name: `CourtLink: ${game.court_name}` },
-                    // Force a valid number (fallback to £5 if db price is null/broken)
-                    unit_amount: Math.round(parseFloat(game.price || 5) * 100), 
+                    unit_amount: stripePriceInPennies, 
                 },
                 quantity: 1,
             }],
@@ -106,7 +109,7 @@ exports.createCheckout = async (req, res) => {
 
         res.json({ url: session.url });
     } catch (err) {
-        console.error("Stripe Error Details:", err.message);
+        console.error("👉 STRIPE CRASH REASON:", err.message);
         res.status(500).send("Server Error");
     }
 };
