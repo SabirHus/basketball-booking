@@ -6,38 +6,45 @@ const Success = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const gameId = searchParams.get("gameId");
-  
-  // useRef prevents the React StrictMode double-fire bug from joining the game twice
   const hasJoined = useRef(false);
 
   useEffect(() => {
     const finalizeBooking = async () => {
       if (hasJoined.current) return;
       hasJoined.current = true;
-
       try {
-        const token = localStorage.getItem("token");
-        // Actually insert them into the game_players database now that they paid!
         await axios.post(`http://localhost:5000/games/join/${gameId}`, {}, {
-            headers: { token: token }
+            headers: { token: localStorage.getItem("token") }
         });
-      } catch (err) {
-        console.error("Booking error:", err);
-      }
+      } catch (err) { console.error("Booking error:", err); }
     };
-
     if (gameId) finalizeBooking();
   }, [gameId]);
 
   return (
-    <div className="container" style={{ textAlign: "center", marginTop: "100px" }}>
-      <h1 style={{ fontSize: "4em", margin: "0" }}>✅</h1>
-      <h1 style={{ color: "#27ae60" }}>Payment Successful!</h1>
-      <p style={{ color: "#666", fontSize: "1.2em" }}>Your spot on the court is officially secured.</p>
-      
-      <div style={{ marginTop: "30px", display: "flex", gap: "20px", justifyContent: "center" }}>
-        <button onClick={() => navigate("/dashboard")} className="btn btn-primary">Back to Map</button>
-        <button onClick={() => navigate("/profile")} className="btn" style={{ background: "#2d3436" }}>View My Profile</button>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f6fa" }}>
+      <div className="card" style={{ textAlign: "center", padding: "40px", maxWidth: "500px", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}>
+        
+        {/* Animated Checkmark Simulation */}
+        <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "#e8f8f5", color: "#27ae60", fontSize: "40px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+            ✓
+        </div>
+        
+        <h1 style={{ color: "#2d3436", marginBottom: "10px" }}>Payment Successful!</h1>
+        <p style={{ color: "#636e72", fontSize: "1.1em", lineHeight: "1.6" }}>
+          Your transaction is complete. Your spot on the court is officially secured. A receipt has been sent to your email.
+        </p>
+        
+        <hr style={{ border: "none", borderTop: "2px dashed #dfe6e9", margin: "30px 0" }} />
+        
+        <div style={{ display: "flex", gap: "15px", justifyContent: "center" }}>
+          <button onClick={() => navigate("/dashboard")} className="btn btn-primary" style={{ padding: "12px 24px" }}>
+            Return to Map
+          </button>
+          <button onClick={() => navigate("/profile")} className="btn" style={{ background: "#2d3436", color: "white", padding: "12px 24px" }}>
+            View My Bookings
+          </button>
+        </div>
       </div>
     </div>
   );

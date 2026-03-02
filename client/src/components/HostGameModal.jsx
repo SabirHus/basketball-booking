@@ -6,6 +6,8 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
     courtName: "",
     date: "",
     skillLevel: "All Levels",
+    maxPlayers: 10, // Default to 10 players
+    price: 0        // Default to Free (£0)
   });
 
   const handleSubmit = async (e) => {
@@ -70,6 +72,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
             <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Skill Level</label>
             <select 
               className="form-input"
+              value={formData.skillLevel}
               onChange={(e) => setFormData({...formData, skillLevel: e.target.value})}
             >
               <option>All Levels</option>
@@ -77,6 +80,36 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
               <option>Intermediate</option>
               <option>Advanced</option>
             </select>
+          </div>
+
+          {/* 🚀 NEW: CAPACITY & PRICE SECTION */}
+          <div className="flex-between" style={{ gap: "15px", marginBottom: "15px" }}>
+             <div className="form-group" style={{ flex: 1, margin: 0 }}>
+               <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Max Players</label>
+               <input
+                 type="number"
+                 min="2"
+                 max="30"
+                 className="form-input"
+                 value={formData.maxPlayers}
+                 required
+                 onChange={(e) => setFormData({...formData, maxPlayers: e.target.value})}
+               />
+             </div>
+
+             <div className="form-group" style={{ flex: 1, margin: 0 }}>
+               <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Price (£)</label>
+               <input
+                 type="number"
+                 min="0"
+                 step="0.50"
+                 className="form-input"
+                 value={formData.price}
+                 required
+                 onChange={(e) => setFormData({...formData, price: e.target.value})}
+               />
+               <small style={{ color: "#888", display: "block", marginTop: "4px" }}>Set to 0 for Free</small>
+             </div>
           </div>
 
           <div className="flex-between" style={{ marginTop: "30px" }}>
