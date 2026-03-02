@@ -1,6 +1,5 @@
 const pool = require("../db");
 
-// 1. HOST A GAME
 exports.hostGame = async (req, res) => {
     try {
         const { courtName, latitude, longitude, date, skillLevel } = req.body;
@@ -9,12 +8,9 @@ exports.hostGame = async (req, res) => {
             [req.user.id, courtName, latitude, longitude, date, skillLevel]
         );
         res.json(newGame.rows);
-    } catch (err) {
-        res.status(500).send("Server Error");
-    }
+    } catch (err) { res.status(500).send("Server Error"); }
 };
 
-// 2. GET ALL GAMES (For Map)
 exports.getAllGames = async (req, res) => {
     try {
         const allGames = await pool.query(`
@@ -23,12 +19,9 @@ exports.getAllGames = async (req, res) => {
             FROM games JOIN users ON games.host_id = users.user_id
         `);
         res.json(allGames.rows);
-    } catch (err) {
-        res.status(500).send("Server Error");
-    }
+    } catch (err) { res.status(500).send("Server Error"); }
 };
 
-// 3. JOIN A GAME
 exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
@@ -37,53 +30,68 @@ exports.joinGame = async (req, res) => {
 
         await pool.query("INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)", [gameId, req.user.id]);
         res.json("Joined successfully!");
-    } catch (err) {
-        res.status(500).send("Server Error");
-    }
+    } catch (err) { res.status(500).send("Server Error"); }
 };
 
-// 4. GET MY GAMES (Advanced SQL Joins)
 exports.getMyGames = async (req, res) => {
     try {
-        const userId = req.user.id;
-        // A. Games I am Hosting
-        const hosted = await pool.query("SELECT * FROM games WHERE host_id = $1 ORDER BY date_time ASC", [userId]);
-        
-        // B. Games I have Joined
+        const hosted = await pool.query("SELECT * FROM games WHERE host_id = $1 ORDER BY date_time ASC", [req.user.id]);
         const joined = await pool.query(`
             SELECT games.* FROM games 
             JOIN game_players ON games.game_id = game_players.game_id 
             WHERE game_players.user_id = $1 ORDER BY games.date_time ASC
-        `, [userId]);
-
+        `, [req.user.id]);
         res.json({ hosted: hosted.rows, joined: joined.rows });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send("Server Error");
-    }
+    } catch (err) { res.status(500).send("Server Error"); }
 };
 
-// 5. DELETE A GAME (Only the Host can do this)
 exports.deleteGame = async (req, res) => {
     try {
-        const { gameId } = req.params;
-        // The "ON DELETE CASCADE" in your database will automatically remove the players connected to this game
-        const deleteOp = await pool.query("DELETE FROM games WHERE game_id = $1 AND host_id = $2 RETURNING *", [gameId, req.user.id]);
-        
-        if (deleteOp.rows.length === 0) return res.status(403).json("Not authorized to delete this game");
-        res.json("Game Deleted Successfully");
-    } catch (err) {
-        res.status(500).send("Server Error");
-    }
+        const deleteOp = await pool.query("DELETE FROM games WHERE game_id = $1 AND host_id = $2 RETURNING *", [req.params.gameId, req.user.id]);
+        if (deleteOp.rows.length === 0) return res.status(403).json("Not authorized");
+        res.json("Deleted");
+    } catch (err) { res.status(500).send("Server Error"); }
 };
 
-// 6. LEAVE A GAME (Players backing out)
 exports.leaveGame = async (req, res) => {
     try {
+        await pool.query("DELETE FROM game_players WHERE game_id = $1 AND user_id = $2", [req.params.gameId, req.user.id]);
+        res.json("Left");
+    } catch (err) { res.status(500).send("Server Error"); }
+};
+
+// --- SPRINT 5: STRIPE ---
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+exports.createCheckout = async (req, res) => {
+    try {
         const { gameId } = req.params;
-        await pool.query("DELETE FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
-        res.json("Left Game Successfully");
+        const userId = req.user.id;
+
+        const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, userId]);
+        if (check.rows.length > 0) return res.status(400).json("Already joined!");
+
+        const game = await pool.query("SELECT * FROM games WHERE game_id = $1", [gameId]);
+        if (game.rows.length === 0) return res.status(404).json("Not found");
+        
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "payment",
+            line_items: [{
+                price_data: {
+                    currency: "gbp",
+                    product_data: { name: `CourtLink: ${game.rows.court_name}` },
+                    unit_amount: 500,
+                },
+                quantity: 1,
+            }],
+            success_url: `http://localhost:5173/success?gameId=${gameId}`,
+            cancel_url: `http://localhost:5173/dashboard`, 
+        });
+
+        res.json({ url: session.url });
     } catch (err) {
+        console.error("Stripe Error:", err.message);
         res.status(500).send("Server Error");
     }
 };

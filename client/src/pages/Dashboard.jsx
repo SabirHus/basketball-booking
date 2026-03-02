@@ -92,17 +92,21 @@ const Dashboard = () => {
     }
   };
 
-  const handleJoinGame = async () => {
+const handleJoinGame = async () => {
     if (!selectedGame) return;
     try {
         const token = localStorage.getItem("token");
-        await axios.post(`http://localhost:5000/games/join/${selectedGame.game_id}`, {}, {
+        
+        // 1. Ask backend for Stripe Checkout URL
+        const res = await axios.post(`http://localhost:5000/games/checkout/${selectedGame.game_id}`, {}, {
             headers: { token: token }
         });
-        alert("✅ You have joined the game!");
-        fetchGames(); 
+        
+        // 2. Redirect the user to Stripe's secure page
+        window.location.href = res.data.url;
+        
     } catch (err) {
-        alert(err.response?.data || "Error joining game");
+        alert(err.response?.data || "Error initiating payment");
     }
   };
 
