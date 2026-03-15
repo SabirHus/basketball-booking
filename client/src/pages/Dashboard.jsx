@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import CourtMap from "../components/CourtMap";
 import HostGameModal from "../components/HostGameModal";
+import GameLobby from "../components/GameLobby"; 
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -12,6 +13,9 @@ const Dashboard = () => {
   const [clickedCoords, setClickedCoords] = useState(null);
   const [searchQuery, setSearchQuery] = useState(""); 
   const [searchLocation, setSearchLocation] = useState(null);
+
+  // 🚀 SPRINT 6: State to hold the host's star rating
+  const [hostRating, setHostRating] = useState(null);
 
   // Filters
   const [filterSkill, setFilterSkill] = useState("All");
@@ -44,6 +48,22 @@ const Dashboard = () => {
     if (!localStorage.getItem("token")) return navigate("/");
     fetchUser(); fetchGames(); 
   }, [navigate]);
+
+  // 🚀 SPRINT 6: Fetch the Host's rating whenever a game is clicked!
+  useEffect(() => {
+    const fetchRating = async () => {
+      if (selectedGame) {
+        try {
+          const res = await axios.get(`http://localhost:5000/games/rating/${selectedGame.host_id}`);
+          setHostRating(res.data);
+        } catch (err) {
+          console.error("Failed to fetch host rating", err);
+          setHostRating(null);
+        }
+      }
+    };
+    fetchRating();
+  }, [selectedGame]);
 
   const handleJoinGame = async () => {
     if (!selectedGame) return;
@@ -121,7 +141,21 @@ const Dashboard = () => {
                         {parseFloat(selectedGame.price) > 0 ? `£${parseFloat(selectedGame.price).toFixed(2)}` : "FREE GAME"}
                     </p>
                     
-                    <p><b>Host:</b> {selectedGame.username}</p>
+                    {/* 🚀 SPRINT 6: Host and Average Star Rating Rendered Here */}
+                    <p style={{ display: "flex", alignItems: "center", gap: "10px", margin: "0 0 10px 0" }}>
+                        <b>Host:</b> {selectedGame.username}
+                        
+                        {hostRating && hostRating.total_ratings > 0 ? (
+                            <span style={{ background: "#fffbe6", border: "1px solid #ffe58f", padding: "2px 8px", borderRadius: "12px", fontSize: "0.9em", color: "#d48806", fontWeight: "bold" }}>
+                                ⭐ {hostRating.avg_rating} <span style={{ color: "#888", fontSize: "0.8em", fontWeight: "normal" }}>({hostRating.total_ratings})</span>
+                            </span>
+                        ) : (
+                            <span style={{ fontSize: "0.8em", color: "#aaa", fontStyle: "italic" }}>
+                                (No reviews yet)
+                            </span>
+                        )}
+                    </p>
+
                     <p><b>Level:</b> {selectedGame.skill_level}</p>
                     <p><b>Time:</b> {new Date(selectedGame.date_time).toLocaleString()}</p>
                     
@@ -137,12 +171,16 @@ const Dashboard = () => {
                         onClick={handleJoinGame} 
                         disabled={parseInt(selectedGame.player_count) >= selectedGame.max_players}
                         className="btn btn-primary" 
-                        style={{width: "100%", background: parseInt(selectedGame.player_count) >= selectedGame.max_players ? "#ccc" : ""}}
+                        style={{width: "100%", marginBottom: "20px", background: parseInt(selectedGame.player_count) >= selectedGame.max_players ? "#ccc" : ""}}
                     >
                         {parseInt(selectedGame.player_count) >= selectedGame.max_players 
                             ? "Game Full 🚫" 
                             : parseFloat(selectedGame.price) > 0 ? `Pay £${parseFloat(selectedGame.price).toFixed(2)} to Join 💳` : "Join for Free 🏀"}
                     </button>
+
+                    {/* THE GAME LOBBY (Player List & Chat) */}
+                    <GameLobby gameId={selectedGame.game_id} maxPlayers={selectedGame.max_players} />
+
                 </div>
             ) : (
                 <>

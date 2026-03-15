@@ -6,17 +6,25 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
     courtName: "",
     date: "",
     skillLevel: "All Levels",
-    maxPlayers: 10, // Default to 10 players
-    price: 0        // Default to Free (£0)
+    maxPlayers: 10, 
+    price: 0        
   });
 
-  const handleSubmit = async (e) => {
+  // 🛑 SPRINT 6: Get current exact time formatted for the HTML input (Time Travel Block)
+  const today = new Date().toISOString().slice(0, 16);
+
+const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
       
+      // 🚀 THE FIX: Translate camelCase to snake_case for the backend
       const payload = {
-        ...formData,
+        court_name: formData.courtName,
+        date_time: formData.date,
+        skill_level: formData.skillLevel,
+        max_players: formData.maxPlayers,
+        price: formData.price,
         latitude: coords.lat,
         longitude: coords.lng,
       };
@@ -30,7 +38,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
       onClose(); 
     } catch (err) {
       console.error(err);
-      alert("Error hosting game. Check console.");
+      alert(err.response?.data || "Error hosting game. Check console.");
     }
   };
 
@@ -64,6 +72,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
               type="datetime-local"
               className="form-input"
               required
+              min={today} // 👈 SPRINT 6 FIX: Blocks past dates in UI
               onChange={(e) => setFormData({...formData, date: e.target.value})}
             />
           </div>
@@ -82,7 +91,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
             </select>
           </div>
 
-          {/* 🚀 NEW: CAPACITY & PRICE SECTION */}
+          {/* 🚀 CAPACITY & PRICE SECTION */}
           <div className="flex-between" style={{ gap: "15px", marginBottom: "15px" }}>
              <div className="form-group" style={{ flex: 1, margin: 0 }}>
                <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Max Players</label>
