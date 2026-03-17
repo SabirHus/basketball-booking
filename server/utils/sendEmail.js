@@ -2,13 +2,17 @@ const { Resend } = require("resend");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const sendConfirmationEmail = async (userEmail, userName, courtName, dateTime, price = 0) => {
+// 🚀 THE FIX: Added 'reference' to the parameters list
+const sendConfirmationEmail = async (userEmail, userName, courtName, dateTime, price = 0, reference) => {
     try {
         const gameDate = new Date(dateTime);
         const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const formattedTime = gameDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         
         const displayPrice = parseFloat(price) > 0 ? `£${parseFloat(price).toFixed(2)}` : "FREE";
+        
+        // 🚀 THE FIX: Format the reference string based on whether they paid or not
+        const displayReference = reference ? reference : "Free Game (No Reference Required)";
 
         const data = await resend.emails.send({
             // 🚀 Using your official domain now! 
@@ -51,6 +55,12 @@ const sendConfirmationEmail = async (userEmail, userName, courtName, dateTime, p
                                     <td style="padding: 15px 5px; color: #64748b; font-weight: bold;">Tickets:</td>
                                     <td style="padding: 15px 5px; text-align: right; font-weight: 500;">1</td>
                                 </tr>
+                                
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 15px 5px; color: #64748b; font-weight: bold;">Order Ref:</td>
+                                    <td style="padding: 15px 5px; text-align: right; font-weight: 500; font-family: monospace; font-size: 12px; color: #94a3b8;">${displayReference}</td>
+                                </tr>
+
                                 <tr style="background-color: #f8fafc;">
                                     <td style="padding: 15px 10px; color: #0f172a; font-weight: bold; font-size: 16px;">Total Paid:</td>
                                     <td style="padding: 15px 10px; text-align: right; font-weight: bold; font-size: 16px; color: #0f172a;">${displayPrice}</td>

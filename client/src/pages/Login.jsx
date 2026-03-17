@@ -32,8 +32,9 @@ const Login = () => {
       
     } catch (err) {
       console.error(err);
-      // Show the specific error message from the server if it exists
-      alert(err.response?.data || "Login Failed");
+      // 🚀 THE FIX: Look for '.message' first! If it's not there, fallback to raw data.
+      const errorMessage = err.response?.data?.message || err.response?.data || "Login Failed";
+      alert(errorMessage);
     }
   };
 

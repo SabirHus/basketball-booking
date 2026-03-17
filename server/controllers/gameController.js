@@ -6,7 +6,6 @@ const sendConfirmationEmail = require("../utils/sendEmail");
 // 1. HOST A GAME (Sprint 6 Upgraded)
 exports.hostGame = async (req, res) => {
     try {
-        // Accepts both camelCase (old frontend) and snake_case (new frontend) safely!
         const courtName = req.body.court_name || req.body.courtName;
         const date = req.body.date_time || req.body.date;
         const skillLevel = req.body.skill_level || req.body.skillLevel;
@@ -16,7 +15,6 @@ exports.hostGame = async (req, res) => {
         const finalPrice = price ? parseFloat(price) : 0;
         const finalMaxPlayers = maxPlayers ? parseInt(maxPlayers) : 10;
 
-        // 🛑 SPRINT 6: Block past dates
         const gameDate = new Date(date);
         const rightNow = new Date();
         if (gameDate < rightNow) {
@@ -28,7 +26,6 @@ exports.hostGame = async (req, res) => {
             [req.user.id, courtName, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers]
         );
         
-        // 🛑 SPRINT 6: Auto-join the host into the lobby!
         await pool.query(
             "INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)",
             [newGame.rows[0].game_id, req.user.id]
@@ -41,10 +38,9 @@ exports.hostGame = async (req, res) => {
     }
 };
 
-// 2. GET ALL GAMES (Updated to include Player Count)
+// 2. GET ALL GAMES
 exports.getAllGames = async (req, res) => {
     try {
-        // This SQL query joins users to games AND counts the players in each game
         const allGames = await pool.query(`
             SELECT games.*, users.username, 
             (SELECT COUNT(*) FROM game_players WHERE game_players.game_id = games.game_id) as player_count 
@@ -57,12 +53,11 @@ exports.getAllGames = async (req, res) => {
     }
 };
 
-// 3. JOIN FREE GAME
+// 3. JOIN GAME (Handles Free AND Paid)
 exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
-        // 🚀 We added 'price' to this SELECT statement so we can send it in the email
         const gameRes = await pool.query(`
             SELECT max_players, court_name, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
@@ -79,14 +74,18 @@ exports.joinGame = async (req, res) => {
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
         if (check.rows.length > 0) return res.status(400).json("You already joined this game!");
 
-        await pool.query("INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)", [gameId, req.user.id]);
+        const { sessionId } = req.body;
 
-        // Get the user's email
+        await pool.query(
+            "INSERT INTO game_players (game_id, user_id, stripe_session_id) VALUES ($1, $2, $3)", 
+            [gameId, req.user.id, sessionId || null]
+        );
+
         const userRes = await pool.query("SELECT username, email FROM users WHERE user_id = $1", [req.user.id]);
         const user = userRes.rows[0];
 
-        // 🚀 FIRE OFF THE BEAUTIFUL NEW EMAIL (Passing the price!)
-        sendConfirmationEmail(user.email, user.username, game.court_name, game.date_time, game.price);
+        // 🚀 THE FIX: We are now passing 'sessionId' as the 6th piece of data!
+        sendConfirmationEmail(user.email, user.username, game.court_name, game.date_time, game.price, sessionId);
 
         res.json("Joined successfully!");
     } catch (err) { 
@@ -131,8 +130,9 @@ exports.createCheckout = async (req, res) => {
                 },
                 quantity: 1,
             }],
-            success_url: `http://localhost:5173/success?gameId=${gameId}`,
-            cancel_url: `http://localhost:5173/dashboard`, 
+            // 🚀 THE FIX: Tell Stripe to attach the session_id to the URL!
+            success_url: `${process.env.CLIENT_URL}/success?gameId=${gameId}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/dashboard`, 
         });
 
         res.json({ url: session.url });
@@ -142,7 +142,7 @@ exports.createCheckout = async (req, res) => {
     }
 };
 
-// 5. GET MY GAMES (Profile Page - RESTORED TO ORIGINAL!)
+// 5. GET MY GAMES
 exports.getMyGames = async (req, res) => {
     try {
         const hosted = await pool.query("SELECT * FROM games WHERE host_id = $1 ORDER BY date_time ASC", [req.user.id]);
@@ -151,7 +151,6 @@ exports.getMyGames = async (req, res) => {
             WHERE game_players.user_id = $1 ORDER BY games.date_time ASC
         `, [req.user.id]);
         
-        // Sending the split object just like your old code did!
         res.json({ hosted: hosted.rows, joined: joined.rows });
     } catch (err) { 
         console.error("Get My Games Error:", err);
@@ -159,15 +158,50 @@ exports.getMyGames = async (req, res) => {
     }
 };
 
-// 6. DELETE A GAME
+// 6. DELETE A GAME & AUTOMATED STRIPE REFUNDS (Task 7.2)
 exports.deleteGame = async (req, res) => {
     try {
-        const deleteOp = await pool.query("DELETE FROM games WHERE game_id = $1 AND host_id = $2 RETURNING *", [req.params.gameId, req.user.id]);
-        if (deleteOp.rows.length === 0) return res.status(403).json("Not authorized");
-        res.json("Deleted");
+        const { gameId } = req.params;
+        const hostId = req.user.id;
+
+        // 1. Verify this user is actually the host of this game
+        const gameCheck = await pool.query("SELECT * FROM games WHERE game_id = $1 AND host_id = $2", [gameId, hostId]);
+        if (gameCheck.rows.length === 0) {
+            return res.status(403).json("Not authorized to delete this game");
+        }
+
+        // 2. Find all players who paid for this game (they have a stripe_session_id)
+        const paidPlayers = await pool.query(
+            "SELECT stripe_session_id FROM game_players WHERE game_id = $1 AND stripe_session_id IS NOT NULL", 
+            [gameId]
+        );
+
+        // 3. Loop through and refund every single player
+        for (let player of paidPlayers.rows) {
+            try {
+                // We need to get the PaymentIntent ID from the Checkout Session to issue a refund
+                const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
+                
+                if (session.payment_intent) {
+                    await stripe.refunds.create({
+                        payment_intent: session.payment_intent,
+                        reason: 'requested_by_customer' // Standard Stripe reason for cancellation
+                    });
+                    console.log(`✅ Refunded session: ${player.stripe_session_id}`);
+                }
+            } catch (stripeErr) {
+                // If one refund fails, we log it but keep trying to refund the others!
+                console.error(`❌ Failed to refund session ${player.stripe_session_id}:`, stripeErr.message);
+            }
+        }
+
+        // 4. Finally, delete the game from the database
+        await pool.query("DELETE FROM games WHERE game_id = $1 AND host_id = $2", [gameId, hostId]);
+        
+        res.json("Game deleted and refunds processed successfully!");
     } catch (err) { 
-        console.error("Delete Error:", err);
-        res.status(500).send("Server Error"); 
+        console.error("Delete/Refund Error:", err);
+        res.status(500).send("Server Error processing refunds"); 
     }
 };
 
@@ -181,8 +215,6 @@ exports.leaveGame = async (req, res) => {
         res.status(500).send("Server Error"); 
     }
 };
-
-// 🚀 SPRINT 6: NEW LOBBY FEATURES BELOW 🚀
 
 // 8. GET PLAYERS FOR LOBBY
 exports.getGamePlayers = async (req, res) => {
@@ -240,14 +272,13 @@ exports.sendMessage = async (req, res) => {
     }
 };
 
-// 11. RATE A HOST (Task 6.5)
+// 11. RATE A HOST
 exports.rateHost = async (req, res) => {
     try {
         const { gameId } = req.params;
         const { rating, hostId } = req.body;
         const raterId = req.user.id;
 
-        // 1. Check if the game has already happened
         const gameRes = await pool.query("SELECT date_time FROM games WHERE game_id = $1", [gameId]);
         if (gameRes.rows.length === 0) return res.status(404).json("Game not found.");
         
@@ -256,13 +287,11 @@ exports.rateHost = async (req, res) => {
             return res.status(400).json("You can only rate the host AFTER the game has finished!");
         }
 
-        // 2. Check if they already rated this game
         const checkRating = await pool.query("SELECT * FROM host_ratings WHERE game_id = $1 AND rater_id = $2", [gameId, raterId]);
         if (checkRating.rows.length > 0) {
             return res.status(400).json("You have already rated the host for this game.");
         }
 
-        // 3. Save the rating
         await pool.query(
             "INSERT INTO host_ratings (game_id, rater_id, host_id, rating) VALUES ($1, $2, $3, $4)",
             [gameId, raterId, hostId, rating]

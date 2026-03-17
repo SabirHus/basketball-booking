@@ -6,6 +6,10 @@ const Success = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const gameId = searchParams.get("gameId");
+  
+  // 🚀 THE FIX: Grab the Stripe session ID from the URL that Stripe sent us back to
+  const sessionId = searchParams.get("session_id"); 
+  
   const hasJoined = useRef(false);
 
   useEffect(() => {
@@ -13,13 +17,14 @@ const Success = () => {
       if (hasJoined.current) return;
       hasJoined.current = true;
       try {
-        await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${gameId}`, {}, {
-            headers: { token: localStorage.getItem("token") }
-        });
+        await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${gameId}`, 
+          { sessionId }, // 🚀 THE FIX: Send the sessionId in the request body!
+          { headers: { token: localStorage.getItem("token") } }
+        );
       } catch (err) { console.error("Booking error:", err); }
     };
     if (gameId) finalizeBooking();
-  }, [gameId]);
+  }, [gameId, sessionId]);
 
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f6fa" }}>
