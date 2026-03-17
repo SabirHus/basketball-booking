@@ -8,7 +8,6 @@ import GameLobby from "../components/GameLobby";
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [games, setGames] = useState([]); 
-  const [selectedGame, setSelectedGame] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
   const [searchQuery, setSearchQuery] = useState(""); 
@@ -44,10 +43,13 @@ const Dashboard = () => {
     } catch (err) { console.error(err); }
   };
 
+  // --- LIFECYCLE ---
   useEffect(() => {
     if (!localStorage.getItem("token")) return navigate("/");
     fetchUser(); fetchGames(); 
   }, [navigate]);
+
+  // --- HANDLERS ---
 
   // 🚀 SPRINT 6: Fetch the Host's rating whenever a game is clicked!
   useEffect(() => {
@@ -97,6 +99,7 @@ const Dashboard = () => {
 
   return (
     <div className="container">
+      {/* HEADER */}
       <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0" }}>
         <h1 style={{ color: "#ff5722", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>🏀 CourtLink</h1>
         <div style={{ display: "flex", gap: "20px" }}>
@@ -190,6 +193,7 @@ const Dashboard = () => {
                     <p>3. <b>Join</b> before it fills up!</p>
                 </>
             )}
+
           </div>
         </aside>
       </div>
