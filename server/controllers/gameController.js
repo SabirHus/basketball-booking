@@ -1,6 +1,7 @@
 require("dotenv").config();
 const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const sendConfirmationEmail = require("../utils/sendEmail");
 
 // 1. HOST A GAME (Sprint 6 Upgraded)
 exports.hostGame = async (req, res) => {
@@ -60,14 +61,15 @@ exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
+        // 🚀 We added 'price' to this SELECT statement so we can send it in the email
         const gameRes = await pool.query(`
-            SELECT max_players, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
+            SELECT max_players, court_name, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
         `, [gameId]);
         
         if (gameRes.rows.length === 0) return res.status(404).json("Game not found");
         
-        const game = gameRes.rows[0]; // 👈 Fixed the array destructuring bug here!
+        const game = gameRes.rows[0]; 
 
         if (parseInt(game.player_count) >= game.max_players) {
             return res.status(400).json("Game is full!");
@@ -77,6 +79,14 @@ exports.joinGame = async (req, res) => {
         if (check.rows.length > 0) return res.status(400).json("You already joined this game!");
 
         await pool.query("INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)", [gameId, req.user.id]);
+
+        // Get the user's email
+        const userRes = await pool.query("SELECT username, email FROM users WHERE user_id = $1", [req.user.id]);
+        const user = userRes.rows[0];
+
+        // 🚀 FIRE OFF THE BEAUTIFUL NEW EMAIL (Passing the price!)
+        sendConfirmationEmail(user.email, user.username, game.court_name, game.date_time, game.price);
+
         res.json("Joined successfully!");
     } catch (err) { 
         console.error("Join Game Error:", err);
