@@ -102,6 +102,26 @@ const Dashboard = () => {
     }
   };
 
+  // 🚀 SPRINT 9: Admin/Host Delete Function
+  const handleDeleteGame = async () => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this game? This cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+        const token = localStorage.getItem("token");
+        // Matches your router.delete("/delete/:gameId")
+        await axios.delete(`${import.meta.env.VITE_API_URL}/games/delete/${selectedGame.game_id}`, {
+            headers: { token }
+        });
+        
+        alert("🗑️ Game deleted successfully.");
+        setSelectedGame(null); // Close the side panel
+        fetchGames(); // Refresh the map pins
+    } catch (err) {
+        alert(err.response?.data || "Error deleting game");
+    }
+  };
+
   const filteredGames = games.filter((game) => {
     const matchSkill = filterSkill === "All" || game.skill_level === filterSkill;
     const isFree = parseFloat(game.price) === 0;
@@ -117,7 +137,7 @@ const Dashboard = () => {
         
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           
-          {/* 🚀 SPRINT 8: DARK MODE TOGGLE BUTTON */}
+          {/* DARK MODE TOGGLE BUTTON */}
           <button 
             className="dark-mode-toggle" 
             onClick={() => setDarkMode(!darkMode)}
@@ -199,6 +219,22 @@ const Dashboard = () => {
                 <p style={{ color: "var(--text-light)", fontStyle: "italic", marginBottom: "15px" }}>📍 {selectedGame.address}</p>
                 <p><strong>Level:</strong> {selectedGame.skill_level}</p>
                 <p><strong>Time:</strong> {new Date(selectedGame.date_time).toLocaleString()}</p>
+
+                {/* 🚀 SPRINT 9: ADMIN / HOST CONTROLS */}
+                {user && (user.is_admin || String(user.id || user.user_id) === String(selectedGame.host_id)) && (
+                    <div style={{ marginTop: "10px", marginBottom: "20px", padding: "15px", background: "var(--bg-color)", borderRadius: "var(--radius)", border: "1px dashed #ff7675" }}>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#d63031" }}>
+                            🛡️ Host / Admin Controls
+                        </p>
+                        <button 
+                            onClick={handleDeleteGame} 
+                            className="btn btn-danger" 
+                            style={{ width: "100%" }}
+                        >
+                            Delete Game 🗑️
+                        </button>
+                    </div>
+                )}
 
                 <GameLobby 
                   game={selectedGame} 

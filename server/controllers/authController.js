@@ -68,10 +68,14 @@ exports.login = async (req, res) => {
     }
 };
 
-// 3. GET USER NAME
+// 3. GET USER DATA (Upgraded to include Admin Status!)
 exports.getName = async (req, res) => {
     try {
-        const user = await pool.query("SELECT username FROM users WHERE user_id = $1", [req.user.id]);
+        // 🚀 THE FIX: Now we are grabbing user_id, email, and is_admin too!
+        const user = await pool.query(
+            "SELECT user_id, username, email, is_admin FROM users WHERE user_id = $1", 
+            [req.user.id]
+        );
         res.json(user.rows[0]); 
     } catch (err) {
         console.error(err.message);
