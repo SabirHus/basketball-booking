@@ -12,7 +12,7 @@ const sendConfirmationEmail = async (userEmail, userName, courtName, dateTime, p
 
         const data = await resend.emails.send({
             // 🚀 Using your official domain now! 
-            from: "CourtLink <hello@thecourtlink.com>", 
+            from: process.env.MAIL_FROM, 
             to: userEmail,
             subject: "🎟️ CourtLink: Booking Confirmed!",
             html: `
