@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "express-rate-limit": "^8.3.1",
+    "framer-motion": "^12.38.0",
     "helmet": "^8.1.0",
+    "leaflet-geosearch": "^4.2.2",
     "resend": "^6.9.3",
     "stripe": "^20.4.0"
   }
