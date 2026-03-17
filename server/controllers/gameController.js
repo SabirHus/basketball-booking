@@ -41,15 +41,10 @@ exports.hostGame = async (req, res) => {
     }
 };
 
-// 2. GET ALL GAMES (For Map)
-exports.getAllGames = async (req, res) => {
-    try {
-=======
 // 2. GET ALL GAMES (Updated to include Player Count)
 exports.getAllGames = async (req, res) => {
     try {
         // This SQL query joins users to games AND counts the players in each game
->>>>>>> 12ac0134cfe4b977a1c5f500cb37953dd2d0d3d1
         const allGames = await pool.query(`
             SELECT games.*, users.username, 
             (SELECT COUNT(*) FROM game_players WHERE game_players.game_id = games.game_id) as player_count 
