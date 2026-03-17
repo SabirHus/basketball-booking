@@ -9,7 +9,7 @@ const RateHost = ({ game }) => {
   const submitRating = async (score) => {
     try {
       await axios.post(
-        `http://localhost:5000/games/rate/${game.game_id}`,
+        `${import.meta.env.VITE_API_URL}/games/rate/${game.game_id}`,
         { rating: score, hostId: game.host_id },
         { headers: { token: localStorage.getItem("token") } }
       );
@@ -56,10 +56,10 @@ const Profile = () => {
       const token = localStorage.getItem("token");
       if (!token) return navigate("/");
 
-      const userRes = await axios.get("http://localhost:5000/auth/verify", { headers: { token } });
+      const userRes = await axios.get(`${import.meta.env.VITE_API_URL}/auth/verify`, { headers: { token } });
       setUser(userRes.data);
 
-      const gameRes = await axios.get("http://localhost:5000/games/mygames", { headers: { token } });
+      const gameRes = await axios.get(`${import.meta.env.VITE_API_URL}/games/mygames`, { headers: { token } });
       
       setHostedGames(gameRes.data.hosted);
       setJoinedGames(gameRes.data.joined);
@@ -73,10 +73,10 @@ const Profile = () => {
     fetchData();
   }, [navigate]);
 
-  const handleDelete = async (gameId) => {
+ const handleDelete = async (gameId) => {
     if (!window.confirm("Are you sure you want to cancel this game?")) return;
     try {
-        await axios.delete(`http://localhost:5000/games/delete/${gameId}`, {
+        await axios.delete(`${import.meta.env.VITE_API_URL}/games/delete/${gameId}`, {
             headers: { token: localStorage.getItem("token") }
         });
         fetchData(); 
@@ -88,7 +88,7 @@ const Profile = () => {
   const handleLeave = async (gameId) => {
     if (!window.confirm("Are you sure you want to leave this game?")) return;
     try {
-        await axios.delete(`http://localhost:5000/games/leave/${gameId}`, {
+        await axios.delete(`${import.meta.env.VITE_API_URL}/games/leave/${gameId}`, {
             headers: { token: localStorage.getItem("token") }
         });
         fetchData(); 

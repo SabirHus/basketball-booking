@@ -31,8 +31,8 @@ exports.register = async (req, res) => {
         res.json({ token });
 
     } catch (err) {
-        console.error("Server Error in Register:", err.message);
-        res.status(500).send("Server Error: " + err.message);
+        console.error(err.message);
+        res.status(500).send("Server Error");
     }
 };
 
@@ -40,17 +40,15 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log("Attempting Login for:", email); // Debug Log
 
         // Check if user exists
         const user = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-
         if (user.rows.length === 0) {
             return res.status(401).json({ message: "Password or Email is incorrect" });
         }
 
         // Check password
-        const validPassword = await bcrypt.compare(password, user.rows[0].password);
+        const validPassword = await bcrypt.compare(password, user.rows[0].password_hash);
         if (!validPassword) {
             return res.status(401).json({ message: "Password or Email is incorrect" });
         }
@@ -61,7 +59,9 @@ exports.login = async (req, res) => {
             process.env.JWT_SECRET, 
             { expiresIn: "1h" }
         );
-        res.json(user.rows[0]);
+
+        res.json({ token, user: user.rows[0] });
+
     } catch (err) {
         console.error(err.message);
         res.status(500).send("Server Error");

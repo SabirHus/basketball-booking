@@ -22,7 +22,7 @@ const Login = () => {
     e.preventDefault();
     try {
       // Send data to server
-      const res = await axios.post("http://localhost:5000/auth/login", formData);
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, formData);
       
       // Save the token
       localStorage.setItem("token", res.data.token);

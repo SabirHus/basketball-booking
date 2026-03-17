@@ -7,15 +7,13 @@ const GameLobby = ({ gameId, maxPlayers }) => {
     const [newMessage, setNewMessage] = useState("");
 
     // 1. Fetch Players and Messages when the lobby opens
-    useEffect(() => {
+useEffect(() => {
         const fetchLobbyData = async () => {
             try {
-                // Fetch Players
-                const playerRes = await axios.get(`http://localhost:5000/games/players/${gameId}`);
+                const playerRes = await axios.get(`${import.meta.env.VITE_API_URL}/games/players/${gameId}`);
                 setPlayers(playerRes.data);
 
-                // Fetch Messages
-                const msgRes = await axios.get(`http://localhost:5000/games/messages/${gameId}`);
+                const msgRes = await axios.get(`${import.meta.env.VITE_API_URL}/games/messages/${gameId}`);
                 setMessages(msgRes.data);
             } catch (err) {
                 console.error("Error loading lobby data:", err);
@@ -33,7 +31,7 @@ const GameLobby = ({ gameId, maxPlayers }) => {
         try {
             // NOTE: Make sure you are passing your JWT token in the headers!
             const res = await axios.post(
-                `http://localhost:5000/games/messages/${gameId}`,
+                `${import.meta.env.VITE_API_URL}/games/messages/${gameId}`,
                 { message: newMessage },
                 { headers: { token: localStorage.getItem("token") } } 
             );

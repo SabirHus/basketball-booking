@@ -8,6 +8,7 @@ import GameLobby from "../components/GameLobby";
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [games, setGames] = useState([]); 
+  const [selectedGame, setSelectedGame] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
   const [searchQuery, setSearchQuery] = useState(""); 
@@ -24,7 +25,8 @@ const Dashboard = () => {
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/auth/verify", { headers: { token } });
+      // 🚀 CHANGED TO .ENV VARIABLE
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/verify`, { headers: { token } });
       setUser(res.data);
     } catch (err) {
       localStorage.removeItem("token");
@@ -34,7 +36,8 @@ const Dashboard = () => {
 
   const fetchGames = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/games/all");
+      // 🚀 CHANGED TO .ENV VARIABLE
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/all`);
       setGames(res.data);
       if (selectedGame) {
         const updated = res.data.find(g => g.game_id === selectedGame.game_id);
@@ -56,7 +59,8 @@ const Dashboard = () => {
     const fetchRating = async () => {
       if (selectedGame) {
         try {
-          const res = await axios.get(`http://localhost:5000/games/rating/${selectedGame.host_id}`);
+          // 🚀 CHANGED TO .ENV VARIABLE
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/rating/${selectedGame.host_id}`);
           setHostRating(res.data);
         } catch (err) {
           console.error("Failed to fetch host rating", err);
@@ -77,10 +81,12 @@ const Dashboard = () => {
         
         // If it costs money, go to Stripe. If it's 0, join immediately.
         if (parseFloat(selectedGame.price) > 0) {
-            const res = await axios.post(`http://localhost:5000/games/checkout/${selectedGame.game_id}`, {}, { headers: { token } });
+            // 🚀 CHANGED TO .ENV VARIABLE
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/games/checkout/${selectedGame.game_id}`, {}, { headers: { token } });
             window.location.href = res.data.url;
         } else {
-            await axios.post(`http://localhost:5000/games/join/${selectedGame.game_id}`, {}, { headers: { token } });
+            // 🚀 CHANGED TO .ENV VARIABLE
+            await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${selectedGame.game_id}`, {}, { headers: { token } });
             alert("✅ Joined successfully for free!");
             fetchGames();
         }

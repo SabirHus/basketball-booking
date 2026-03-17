@@ -37,7 +37,7 @@ const Register = () => {
         password: formData.password
       };
 
-      await axios.post("http://localhost:5000/auth/register", payload);
+      await axios.post(`${import.meta.env.VITE_API_URL}/auth/register`, payload);
       
       alert("✅ Registration Successful! Please Log In.");
       navigate("/"); 

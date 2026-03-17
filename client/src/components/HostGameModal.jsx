@@ -10,7 +10,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
     price: 0        
   });
 
-  // 🛑 SPRINT 6: Get current exact time formatted for the HTML input (Time Travel Block)
+  // 🛑 SPRINT 6: Get current exact time formatted for the HTML input
   const today = new Date().toISOString().slice(0, 16);
 
 const handleSubmit = async (e) => {
@@ -18,7 +18,6 @@ const handleSubmit = async (e) => {
     try {
       const token = localStorage.getItem("token");
       
-      // 🚀 THE FIX: Translate camelCase to snake_case for the backend
       const payload = {
         court_name: formData.courtName,
         date_time: formData.date,
@@ -29,7 +28,7 @@ const handleSubmit = async (e) => {
         longitude: coords.lng,
       };
 
-      await axios.post("http://localhost:5000/games/host", payload, {
+      await axios.post(`${import.meta.env.VITE_API_URL}/games/host`, payload, {
         headers: { token: token },
       });
 
@@ -72,7 +71,7 @@ const handleSubmit = async (e) => {
               type="datetime-local"
               className="form-input"
               required
-              min={today} // 👈 SPRINT 6 FIX: Blocks past dates in UI
+              min={today}
               onChange={(e) => setFormData({...formData, date: e.target.value})}
             />
           </div>
@@ -91,7 +90,6 @@ const handleSubmit = async (e) => {
             </select>
           </div>
 
-          {/* 🚀 CAPACITY & PRICE SECTION */}
           <div className="flex-between" style={{ gap: "15px", marginBottom: "15px" }}>
              <div className="form-group" style={{ flex: 1, margin: 0 }}>
                <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Max Players</label>
@@ -111,6 +109,7 @@ const handleSubmit = async (e) => {
                <input
                  type="number"
                  min="0"
+                 max="100"
                  step="0.50"
                  className="form-input"
                  value={formData.price}

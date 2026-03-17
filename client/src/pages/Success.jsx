@@ -13,7 +13,7 @@ const Success = () => {
       if (hasJoined.current) return;
       hasJoined.current = true;
       try {
-        await axios.post(`http://localhost:5000/games/join/${gameId}`, {}, {
+        await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${gameId}`, {}, {
             headers: { token: localStorage.getItem("token") }
         });
       } catch (err) { console.error("Booking error:", err); }
