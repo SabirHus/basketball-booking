@@ -1,25 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 const HostGameModal = ({ coords, onClose, onGameHosted }) => {
   const [formData, setFormData] = useState({
     courtName: "",
+    address: "", 
     date: "",
     skillLevel: "All Levels",
     maxPlayers: 10, 
     price: 0        
   });
+  
+  // 🚀 SPRINT 8: Added a loading state so the user knows we are fetching the address
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false);
 
   // 🛑 SPRINT 6: Get current exact time formatted for the HTML input
   const today = new Date().toISOString().slice(0, 16);
 
-const handleSubmit = async (e) => {
+  // 🚀 SPRINT 8: Reverse Geocoding - Automatically grab the street address!
+  useEffect(() => {
+    const fetchAddress = async () => {
+      if (coords) {
+        setIsFetchingAddress(true);
+        try {
+          // Talk to the free OpenStreetMap API
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`);
+          const data = await res.json();
+          
+          if (data && data.display_name) {
+             // The API returns a very long string, so we split it by commas and take the first 3 pieces to make a clean street address
+             const addressParts = data.display_name.split(", ");
+             const cleanAddress = addressParts.slice(0, 3).join(", ");
+             
+             // Update the form state automatically!
+             setFormData(prev => ({ ...prev, address: cleanAddress }));
+          }
+        } catch (error) {
+          console.error("Could not fetch address:", error);
+        } finally {
+          setIsFetchingAddress(false);
+        }
+      }
+    };
+
+    fetchAddress();
+  }, [coords]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
       
       const payload = {
         court_name: formData.courtName,
+        address: formData.address, // Sends the auto-filled address to backend
         date_time: formData.date,
         skill_level: formData.skillLevel,
         max_players: formData.maxPlayers,
@@ -62,6 +96,18 @@ const handleSubmit = async (e) => {
               placeholder="Court Name (e.g. Rucker Park)"
               required
               onChange={(e) => setFormData({...formData, courtName: e.target.value})}
+            />
+          </div>
+
+          <div className="form-group">
+            <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Street Address</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder={isFetchingAddress ? "Locating address..." : "e.g. 155th St & Frederick Douglass Blvd"}
+              required
+              value={formData.address} // 🚀 Binds the input box to our auto-fetched address
+              onChange={(e) => setFormData({...formData, address: e.target.value})}
             />
           </div>
 
@@ -116,13 +162,13 @@ const handleSubmit = async (e) => {
                  required
                  onChange={(e) => setFormData({...formData, price: e.target.value})}
                />
-               <small style={{ color: "#888", display: "block", marginTop: "4px" }}>Set to 0 for Free</small>
+               <small style={{ color: "#888", display: "block", margin: "4px 0 0 0" }}>Set to 0 for Free</small>
              </div>
           </div>
 
-          <div className="flex-between" style={{ marginTop: "30px" }}>
+          <div className="flex-between" style={{ marginTop: "20px" }}>
             <button type="button" onClick={onClose} className="btn" style={{ background: "#eee", color: "#333" }}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Confirm Game</button>
+            <button type="submit" className="btn btn-primary" disabled={isFetchingAddress}>Confirm Game</button>
           </div>
         </form>
       </div>

@@ -2,20 +2,19 @@ const { Resend } = require("resend");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// 🚀 THE FIX: Added 'reference' to the parameters list
-const sendConfirmationEmail = async (userEmail, userName, courtName, dateTime, price = 0, reference) => {
+// 🚀 THE FIX: Added 'address' to the parameters list
+const sendConfirmationEmail = async (userEmail, userName, courtName, address, dateTime, price = 0, reference) => {
     try {
         const gameDate = new Date(dateTime);
         const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const formattedTime = gameDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         
         const displayPrice = parseFloat(price) > 0 ? `£${parseFloat(price).toFixed(2)}` : "FREE";
-        
-        // 🚀 THE FIX: Format the reference string based on whether they paid or not
         const displayReference = reference ? reference : "Free Game (No Reference Required)";
+        // Fallback in case address is somehow null
+        const displayAddress = address ? address : "Address not provided";
 
         const data = await resend.emails.send({
-            // 🚀 Using your official domain now! 
             from: process.env.MAIL_FROM, 
             to: userEmail,
             subject: "🎟️ CourtLink: Booking Confirmed!",
@@ -48,8 +47,12 @@ const sendConfirmationEmail = async (userEmail, userName, courtName, dateTime, p
                                     <td style="padding: 15px 5px; text-align: right; font-weight: 500;">${formattedTime}</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                                    <td style="padding: 15px 5px; color: #64748b; font-weight: bold;">Location:</td>
+                                    <td style="padding: 15px 5px; color: #64748b; font-weight: bold;">Court Name:</td>
                                     <td style="padding: 15px 5px; text-align: right; font-weight: 500;">${courtName}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 15px 5px; color: #64748b; font-weight: bold;">Address:</td>
+                                    <td style="padding: 15px 5px; text-align: right; font-weight: 500;">${displayAddress}</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #e2e8f0;">
                                     <td style="padding: 15px 5px; color: #64748b; font-weight: bold;">Tickets:</td>

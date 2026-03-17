@@ -4,6 +4,8 @@ import axios from "axios";
 import CourtMap from "../components/CourtMap";
 import HostGameModal from "../components/HostGameModal";
 import GameLobby from "../components/GameLobby"; 
+import { motion, AnimatePresence } from "framer-motion";
+import SkeletonCard from "../components/SkeletonCard";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -11,21 +13,30 @@ const Dashboard = () => {
   const [selectedGame, setSelectedGame] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(""); 
-  const [searchLocation, setSearchLocation] = useState(null);
-
-  // 🚀 SPRINT 6: State to hold the host's star rating
   const [hostRating, setHostRating] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filters
+  // 🚀 SPRINT 8: Dark Mode State (remembers user preference)
+  const [darkMode, setDarkMode] = useState(localStorage.getItem("theme") === "dark");
+
   const [filterSkill, setFilterSkill] = useState("All");
   const [filterPrice, setFilterPrice] = useState("All");
   const navigate = useNavigate();
 
+  // 🚀 SPRINT 8: Apply Dark Mode to the <body> tag
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add("dark-mode");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.body.classList.remove("dark-mode");
+      localStorage.setItem("theme", "light");
+    }
+  }, [darkMode]);
+
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("token");
-      // 🚀 CHANGED TO .ENV VARIABLE
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/verify`, { headers: { token } });
       setUser(res.data);
     } catch (err) {
@@ -36,30 +47,30 @@ const Dashboard = () => {
 
   const fetchGames = async () => {
     try {
-      // 🚀 CHANGED TO .ENV VARIABLE
+      setIsLoading(true);
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/all`);
       setGames(res.data);
       if (selectedGame) {
         const updated = res.data.find(g => g.game_id === selectedGame.game_id);
         if (updated) setSelectedGame(updated);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+    } finally {
+      setTimeout(() => setIsLoading(false), 500); 
+    }
   };
 
-  // --- LIFECYCLE ---
   useEffect(() => {
     if (!localStorage.getItem("token")) return navigate("/");
-    fetchUser(); fetchGames(); 
+    fetchUser(); 
+    fetchGames(); 
   }, [navigate]);
 
-  // --- HANDLERS ---
-
-  // 🚀 SPRINT 6: Fetch the Host's rating whenever a game is clicked!
   useEffect(() => {
     const fetchRating = async () => {
       if (selectedGame) {
         try {
-          // 🚀 CHANGED TO .ENV VARIABLE
           const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/rating/${selectedGame.host_id}`);
           setHostRating(res.data);
         } catch (err) {
@@ -78,14 +89,10 @@ const Dashboard = () => {
 
     try {
         const token = localStorage.getItem("token");
-        
-        // If it costs money, go to Stripe. If it's 0, join immediately.
         if (parseFloat(selectedGame.price) > 0) {
-            // 🚀 CHANGED TO .ENV VARIABLE
             const res = await axios.post(`${import.meta.env.VITE_API_URL}/games/checkout/${selectedGame.game_id}`, {}, { headers: { token } });
             window.location.href = res.data.url;
         } else {
-            // 🚀 CHANGED TO .ENV VARIABLE
             await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${selectedGame.game_id}`, {}, { headers: { token } });
             alert("✅ Joined successfully for free!");
             fetchGames();
@@ -95,7 +102,6 @@ const Dashboard = () => {
     }
   };
 
-  // Filter Logic
   const filteredGames = games.filter((game) => {
     const matchSkill = filterSkill === "All" || game.skill_level === filterSkill;
     const isFree = parseFloat(game.price) === 0;
@@ -106,10 +112,21 @@ const Dashboard = () => {
   return (
     <div className="container">
       {/* HEADER */}
-      <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0" }}>
-        <h1 style={{ color: "#ff5722", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>🏀 CourtLink</h1>
-        <div style={{ display: "flex", gap: "20px" }}>
-          <span style={{ fontWeight: "600", cursor: "pointer", textDecoration: "underline" }} onClick={() => navigate("/profile")}>
+      <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0", borderBottom: "1px solid var(--border-color, #eaeaea)" }}>
+        <h1 style={{ color: "var(--primary)", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>🏀 CourtLink</h1>
+        
+        <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+          
+          {/* 🚀 SPRINT 8: DARK MODE TOGGLE BUTTON */}
+          <button 
+            className="dark-mode-toggle" 
+            onClick={() => setDarkMode(!darkMode)}
+            title="Toggle Dark/Light Mode"
+          >
+            {darkMode ? "☀️" : "🌙"}
+          </button>
+
+          <span style={{ fontWeight: "600", cursor: "pointer", textDecoration: "underline", color: "var(--text-light)" }} onClick={() => navigate("/profile")}>
             Hello, {user ? user.username : "Loading..."}
           </span>
           <button onClick={() => { localStorage.removeItem("token"); navigate("/"); }} className="btn btn-danger">Log Out</button>
@@ -117,8 +134,8 @@ const Dashboard = () => {
       </header>
 
       {/* FILTER BAR */}
-      <div style={{ background: "white", padding: "15px", borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.1)", marginBottom: "20px", display: "flex", gap: "20px", flexWrap: "wrap" }}>
-        <strong style={{color: "#444"}}>Filters:</strong>
+      <div className="filter-bar">
+        <strong style={{color: "var(--text-main)"}}>Filters:</strong>
         <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)} className="form-input" style={{width: "auto"}}>
             <option value="All">All Skills</option>
             <option value="Beginner">Beginner</option>
@@ -134,76 +151,91 @@ const Dashboard = () => {
       
       <div className="dashboard-grid">
         <div className="map-wrapper" style={{position: "relative"}}>
-          <CourtMap onMapClick={(data) => {
-             if (data.game) { setSelectedGame(data.game); setClickedCoords(null); } 
-             else { setClickedCoords(data); setSelectedGame(null); setIsModalOpen(true); }
-          }} games={filteredGames} searchLocation={searchLocation} />
+          <CourtMap 
+            games={filteredGames} 
+            onMapClick={(data) => {
+               if (data.game) { 
+                 setSelectedGame(data.game); 
+                 setClickedCoords(null); 
+               } else { 
+                 setClickedCoords(data); 
+                 setSelectedGame(null); 
+                 setIsModalOpen(true); 
+               }
+            }} 
+          />
         </div>
 
         <aside>
-          <div className="card">
-            {selectedGame ? (
-                <div style={{animation: "fadeIn 0.3s"}}>
-                    <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"#999", marginBottom:"10px"}}>← Back</button>
-                    <h2 style={{color: "#ff5722", margin: "0 0 5px 0"}}>{selectedGame.court_name}</h2>
-                    <p style={{margin: "0 0 15px 0", fontWeight: "bold", color: parseFloat(selectedGame.price) > 0 ? "#27ae60" : "#0984e3"}}>
-                        {parseFloat(selectedGame.price) > 0 ? `£${parseFloat(selectedGame.price).toFixed(2)}` : "FREE GAME"}
-                    </p>
-                    
-                    {/* 🚀 SPRINT 6: Host and Average Star Rating Rendered Here */}
-                    <p style={{ display: "flex", alignItems: "center", gap: "10px", margin: "0 0 10px 0" }}>
-                        <b>Host:</b> {selectedGame.username}
-                        
-                        {hostRating && hostRating.total_ratings > 0 ? (
-                            <span style={{ background: "#fffbe6", border: "1px solid #ffe58f", padding: "2px 8px", borderRadius: "12px", fontSize: "0.9em", color: "#d48806", fontWeight: "bold" }}>
-                                ⭐ {hostRating.avg_rating} <span style={{ color: "#888", fontSize: "0.8em", fontWeight: "normal" }}>({hostRating.total_ratings})</span>
-                            </span>
-                        ) : (
-                            <span style={{ fontSize: "0.8em", color: "#aaa", fontStyle: "italic" }}>
-                                (No reviews yet)
-                            </span>
-                        )}
-                    </p>
-
-                    <p><b>Level:</b> {selectedGame.skill_level}</p>
-                    <p><b>Time:</b> {new Date(selectedGame.date_time).toLocaleString()}</p>
-                    
-                    {/* CAPACITY VISUAL */}
-                    <div style={{background: "#eee", padding: "15px", borderRadius: "8px", margin: "20px 0", textAlign:"center"}}>
-                        <h3 style={{margin:0, fontSize:"1.8em", color: parseInt(selectedGame.player_count) >= selectedGame.max_players ? "red" : "#333"}}>
-                            {selectedGame.player_count || 0} / {selectedGame.max_players}
-                        </h3>
-                        <small style={{fontWeight: "bold", color: "#666"}}>Spots Filled</small>
-                    </div>
-
-                    <button 
-                        onClick={handleJoinGame} 
-                        disabled={parseInt(selectedGame.player_count) >= selectedGame.max_players}
-                        className="btn btn-primary" 
-                        style={{width: "100%", marginBottom: "20px", background: parseInt(selectedGame.player_count) >= selectedGame.max_players ? "#ccc" : ""}}
-                    >
-                        {parseInt(selectedGame.player_count) >= selectedGame.max_players 
-                            ? "Game Full 🚫" 
-                            : parseFloat(selectedGame.price) > 0 ? `Pay £${parseFloat(selectedGame.price).toFixed(2)} to Join 💳` : "Join for Free 🏀"}
-                    </button>
-
-                    {/* THE GAME LOBBY (Player List & Chat) */}
-                    <GameLobby gameId={selectedGame.game_id} maxPlayers={selectedGame.max_players} />
-
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                <SkeletonCard />
+              </motion.div>
+            ) : selectedGame ? (
+              <motion.div 
+                key={selectedGame.game_id} 
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="card"
+              >
+                <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"var(--text-light)", marginBottom:"10px", fontWeight: "bold"}}>← Back to Map</button>
+                <h2 className="game-title">{selectedGame.court_name}</h2>
+                <p className={parseFloat(selectedGame.price) > 0 ? "price-badge-paid" : "price-badge-free"}>
+                    {parseFloat(selectedGame.price) > 0 ? `£${parseFloat(selectedGame.price).toFixed(2)}` : "FREE GAME"}
+                </p>
+                
+                <div className="host-info-box">
+                    <strong>Host:</strong> {selectedGame.username}
+                    {hostRating && hostRating.total_ratings > 0 ? (
+                        <span className="rating-badge">⭐ {hostRating.avg_rating} <span style={{opacity: 0.7}}>({hostRating.total_ratings})</span></span>
+                    ) : (
+                        <span style={{ fontSize: "12px", color: "var(--text-muted)", fontStyle: "italic", marginLeft: "auto" }}>(No reviews)</span>
+                    )}
                 </div>
-            ) : (
-                <>
-                    <h3 style={{ borderBottom: "2px solid #ff5722", paddingBottom: "10px" }}>📅 How to Book</h3>
-                    <p>1. <b>Filter</b> to find free or paid games.</p>
-                    <p>2. <b>Click a Pin</b> to see capacity.</p>
-                    <p>3. <b>Join</b> before it fills up!</p>
-                </>
-            )}
+                
+                <p style={{ color: "var(--text-light)", fontStyle: "italic", marginBottom: "15px" }}>📍 {selectedGame.address}</p>
+                <p><strong>Level:</strong> {selectedGame.skill_level}</p>
+                <p><strong>Time:</strong> {new Date(selectedGame.date_time).toLocaleString()}</p>
 
-          </div>
+                <GameLobby 
+                  game={selectedGame} 
+                  currentUser={user} 
+                  onJoin={handleJoinGame} 
+                />
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="instructions"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="instructions-card"
+              >
+                  <h3 style={{fontSize: "2rem", margin: "0 0 20px 0"}}>📅 How to Book</h3>
+                  <ul className="instructions-list">
+                    <li><b>1. Filter</b> to find free or paid games.</li>
+                    <li><b>2. Click a Pin</b> to see capacity.</li>
+                    <li><b>3. Join</b> before it fills up!</li>
+                  </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </aside>
       </div>
-        {isModalOpen && clickedCoords && <HostGameModal coords={clickedCoords} onClose={() => setIsModalOpen(false)} onGameHosted={fetchGames} />}
+      
+      {/* HOST GAME MODAL */}
+      {isModalOpen && clickedCoords && (
+        <HostGameModal 
+          coords={clickedCoords} 
+          onClose={() => setIsModalOpen(false)} 
+          onGameHosted={() => {
+            fetchGames();
+            setIsModalOpen(false);
+          }} 
+        />
+      )}
     </div>
   );
 };

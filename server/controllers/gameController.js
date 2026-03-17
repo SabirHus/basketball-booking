@@ -3,10 +3,12 @@ const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const sendConfirmationEmail = require("../utils/sendEmail");
 
-// 1. HOST A GAME (Sprint 6 Upgraded)
+// 1. HOST A GAME (Upgraded with Address)
 exports.hostGame = async (req, res) => {
     try {
         const courtName = req.body.court_name || req.body.courtName;
+        // 🚀 THE FIX: Capture the address from the frontend
+        const address = req.body.address || "Address not provided"; 
         const date = req.body.date_time || req.body.date;
         const skillLevel = req.body.skill_level || req.body.skillLevel;
         const maxPlayers = req.body.max_players || req.body.maxPlayers;
@@ -21,9 +23,10 @@ exports.hostGame = async (req, res) => {
             return res.status(400).json("Error: You cannot host a game in the past!");
         }
 
+        // 🚀 THE FIX: Insert the address into the database (Added $9)
         const newGame = await pool.query(
-            "INSERT INTO games (host_id, court_name, latitude, longitude, date_time, skill_level, price, max_players, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'open') RETURNING *",
-            [req.user.id, courtName, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers]
+            "INSERT INTO games (host_id, court_name, address, latitude, longitude, date_time, skill_level, price, max_players, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open') RETURNING *",
+            [req.user.id, courtName, address, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers]
         );
         
         await pool.query(
@@ -53,13 +56,14 @@ exports.getAllGames = async (req, res) => {
     }
 };
 
-// 3. JOIN GAME (Handles Free AND Paid)
+// 3. JOIN GAME (Upgraded to email the Address)
 exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
+        // 🚀 THE FIX: Tell SQL to also grab the `address` column
         const gameRes = await pool.query(`
-            SELECT max_players, court_name, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
+            SELECT max_players, court_name, address, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
         `, [gameId]);
         
@@ -84,8 +88,9 @@ exports.joinGame = async (req, res) => {
         const userRes = await pool.query("SELECT username, email FROM users WHERE user_id = $1", [req.user.id]);
         const user = userRes.rows[0];
 
-        // 🚀 THE FIX: We are now passing 'sessionId' as the 6th piece of data!
-        sendConfirmationEmail(user.email, user.username, game.court_name, game.date_time, game.price, sessionId);
+        // 🚀 THE FIX: Pass `game.address` into your email utility! 
+        // NOTE: Make sure your `utils/sendEmail.js` file is expecting the address as an argument!
+        sendConfirmationEmail(user.email, user.username, game.court_name, game.address, game.date_time, game.price, sessionId);
 
         res.json("Joined successfully!");
     } catch (err) { 
