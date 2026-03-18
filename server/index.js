@@ -9,7 +9,7 @@ const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
-// 🚀 CRITICAL FOR RENDER: Trust the reverse proxy!
+// CRITICAL FOR RENDER: Trust the reverse proxy!
 // Without this, your rate limiter will block everyone instantly in production.
 app.set('trust proxy', 1);
 
