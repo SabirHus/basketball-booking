@@ -225,12 +225,12 @@ exports.leaveGame = async (req, res) => {
     }
 };
 
-// 8. GET PLAYERS FOR LOBBY
+// 8. GET PLAYERS FOR LOBBY (Upgraded to fetch Profile Data)
 exports.getGamePlayers = async (req, res) => {
     try {
         const { gameId } = req.params;
         const players = await pool.query(`
-            SELECT users.user_id, users.username 
+            SELECT users.user_id, users.username, users.profile_pic, users.position, users.bio 
             FROM game_players 
             JOIN users ON game_players.user_id = users.user_id 
             WHERE game_players.game_id = $1

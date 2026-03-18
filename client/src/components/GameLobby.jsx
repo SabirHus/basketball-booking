@@ -38,7 +38,6 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
         }
     };
 
-    // 🚀 THE FIX: Compare by ID OR Username (in case the auth route didn't send the ID!)
     const currentUserId = String(currentUser?.id || currentUser?.user_id).toLowerCase();
     const currentUsername = currentUser?.username;
 
@@ -53,29 +52,48 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
     return (
         <div style={{ marginTop: "20px" }}>
             
-            {/* --- 1. PLAYERS SECTION --- */}
+            {/* --- 1. PLAYERS ROSTER SECTION --- */}
             <div className="lobby-players-card">
-                <h4 className="lobby-header">
-                    <span>👥 Players</span>
+                <h4 className="lobby-header" style={{ borderBottom: "2px solid var(--primary)", paddingBottom: "10px", marginBottom: "15px" }}>
+                    <span>📋 Player Roster</span>
                     <span style={{ fontSize: "14px", fontWeight: "bold", color: players.length >= game.max_players ? "#e74c3c" : "#27ae60" }}>
                         {players.length} / {game.max_players}
                     </span>
                 </h4>
                 
-                <div className="player-list">
+                <div className="player-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                     {players.length > 0 ? players.map(p => {
-                        // 🚀 THE FIX: Also use the bulletproof check here for the "(You)" tag!
                         const isMe = String(p.user_id).toLowerCase() === currentUserId || p.username === currentUsername;
                         
                         return (
-                            <div key={p.user_id} className={`player-pill ${isMe ? "is-me" : ""}`}>
-                                <div className={`player-avatar ${isMe ? "is-me" : ""}`}>
-                                    {p.username.charAt(0).toUpperCase()}
+                            <div key={p.user_id} style={{
+                                display: "flex", alignItems: "center", gap: "12px", background: "var(--bg-color)",
+                                padding: "10px", borderRadius: "8px", border: `1px solid ${isMe ? "var(--primary)" : "var(--border-color)"}`
+                            }}>
+                                {/* Avatar */}
+                                <img
+                                    src={p.profile_pic || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"}
+                                    alt={p.username}
+                                    style={{ width: "45px", height: "45px", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--primary)" }}
+                                />
+                                
+                                {/* Info */}
+                                <div style={{ flex: 1, textAlign: "left" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <strong style={{ fontSize: "15px", color: "var(--text-main)" }}>
+                                            {p.username} {isMe && <span style={{color: "var(--primary)", fontSize: "12px"}}>(You)</span>}
+                                        </strong>
+                                        <span style={{ fontSize: "11px", background: "var(--primary)", color: "white", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold" }}>
+                                            {p.position || "Not Specified"}
+                                        </span>
+                                    </div>
+                                    <p style={{ margin: "2px 0 0 0", fontSize: "13px", color: "var(--text-light)", fontStyle: "italic" }}>
+                                        "{p.bio || "I am ready to hoop!"}"
+                                    </p>
                                 </div>
-                                {p.username} {isMe && <span style={{color: "var(--primary)", fontSize: "12px"}}>(You)</span>}
                             </div>
                         )
-                    }) : <span style={{ color: "#888", fontSize: "14px", fontStyle: "italic" }}>No players yet...</span>}
+                    }) : <span style={{ color: "var(--text-muted)", fontSize: "14px", fontStyle: "italic", textAlign: "center", display: "block" }}>No players yet...</span>}
                 </div>
             </div>
 
@@ -85,7 +103,7 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                     onClick={onJoin} 
                     disabled={isFull}
                     className="btn btn-primary" 
-                    style={{width: "100%", marginBottom: "20px", background: isFull ? "#ccc" : ""}}
+                    style={{width: "100%", marginTop: "15px", marginBottom: "20px", background: isFull ? "#ccc" : ""}}
                 >
                     {isFull 
                         ? "Game Full 🚫" 
@@ -95,7 +113,7 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
 
             {/* --- 3. THE CHAT SECTION --- */}
             {hasJoined ? (
-                <div className="chat-container">
+                <div className="chat-container" style={{ marginTop: "20px" }}>
                     <div className="chat-header">💬 Locker Room Chat</div>
                     
                     <div className="chat-messages">
@@ -110,7 +128,7 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                                 </div>
                             )
                         }) : (
-                            <div style={{ textAlign: "center", color: "#aaa", fontSize: "13px", marginTop: "50px" }}>No messages yet. Say hi! 👋</div>
+                            <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "13px", marginTop: "50px" }}>No messages yet. Say hi! 👋</div>
                         )}
                     </div>
 
@@ -128,7 +146,7 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                     </form>
                 </div>
             ) : (
-                <div className="chat-locked">
+                <div className="chat-locked" style={{ marginTop: "20px" }}>
                     <div style={{ fontSize: "24px", marginBottom: "8px" }}>🔒</div>
                     <div style={{ fontSize: "15px", fontWeight: "bold" }}>Locker Room Locked</div>
                     <div style={{ fontSize: "13px", marginTop: "4px", opacity: 0.8 }}>Join the game to chat with the players!</div>
