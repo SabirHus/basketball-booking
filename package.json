@@ -13,11 +13,14 @@
     "concurrently": "^9.1.0"
   },
   "dependencies": {
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
     "express-rate-limit": "^8.3.1",
     "framer-motion": "^12.38.0",
     "helmet": "^8.1.0",
     "leaflet-geosearch": "^4.2.2",
+    "multer": "^2.1.1",
+    "multer-storage-cloudinary": "^4.0.0",
     "resend": "^6.9.3",
     "stripe": "^20.4.0"
   }

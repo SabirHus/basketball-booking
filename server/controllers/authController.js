@@ -82,3 +82,41 @@ exports.getName = async (req, res) => {
         res.status(500).send("Server Error");
     }
 };
+
+// 4. GET FULL USER PROFILE
+exports.getProfile = async (req, res) => {
+    try {
+        const user = await pool.query(
+            "SELECT user_id, username, email, is_admin, bio, position, profile_pic FROM users WHERE user_id = $1", 
+            [req.user.id]
+        );
+        res.json(user.rows[0]); 
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send("Server Error");
+    }
+};
+
+// 5. UPDATE PROFILE (With Image Upload)
+exports.updateProfile = async (req, res) => {
+    try {
+        const { bio, position } = req.body;
+        const userId = req.user.id;
+        
+        // If the user uploaded a file, Multer/Cloudinary will attach the cloud URL to req.file.path
+        let profilePicUrl = req.body.existing_pic; 
+        if (req.file) {
+            profilePicUrl = req.file.path; 
+        }
+
+        const updatedUser = await pool.query(
+            "UPDATE users SET bio = $1, position = $2, profile_pic = $3 WHERE user_id = $4 RETURNING user_id, username, bio, position, profile_pic",
+            [bio, position, profilePicUrl, userId]
+        );
+
+        res.json(updatedUser.rows[0]);
+    } catch (err) {
+        console.error("Update Profile Error:", err);
+        res.status(500).send("Server Error");
+    }
+};
