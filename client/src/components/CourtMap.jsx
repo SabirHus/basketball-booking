@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
 import 'leaflet-geosearch/dist/geosearch.css';
 
-// Default Blue Pin (For actual games)
+// Default Blue Pin (For games that haven't reached the minimum yet)
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -20,6 +20,14 @@ L.Marker.prototype.options.icon = DefaultIcon;
 // 🚀 SPRINT 8: Custom Orange Pin just for Search Results!
 let OrangeIcon = L.icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+// 🚀 NEW: Custom Green Pin for "Game ON"
+let GreenIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
     shadowUrl: iconShadow,
     iconSize: [25, 41],
     iconAnchor: [12, 41]
@@ -46,7 +54,7 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
         style: 'bar', 
         showMarker: true, 
         marker: {
-          icon: OrangeIcon, // 🚀 Uses our new Orange Pin!
+          icon: OrangeIcon, // Uses our Orange Pin!
           draggable: false,
         },
         retainZoomLevel: false,
@@ -82,15 +90,23 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
       markersLayerRef.current.clearLayers();
 
       games.forEach((game) => {
-        // These will use the Default Blue Pin
-        const marker = L.marker([game.latitude, game.longitude]).addTo(markersLayerRef.current);
+        // 🚀 NEW: Check if the game has reached the minimum players
+        const isGameOn = game.min_players && parseInt(game.player_count) >= parseInt(game.min_players);
+        
+        // Pick the right color pin based on the status
+        const pinColor = isGameOn ? GreenIcon : DefaultIcon;
+
+        // Place the marker with the chosen color
+        const marker = L.marker([game.latitude, game.longitude], { icon: pinColor }).addTo(markersLayerRef.current);
 
         marker.on('click', (e) => {
             L.DomEvent.stopPropagation(e); 
             if (onMapClick) onMapClick({ game: game });
         });
         
-        marker.bindTooltip(`<b>${game.court_name}</b><br>Players: ${game.player_count || 0}`); 
+        // 🚀 NEW: Update tooltip to show the status
+        const statusText = isGameOn ? `<br><span style="color: green; font-weight: bold;">✅ Game ON</span>` : '';
+        marker.bindTooltip(`<b>${game.court_name}</b><br>Players: ${game.player_count || 0} / ${game.max_players}${statusText}`); 
       });
     }
   }, [games]);

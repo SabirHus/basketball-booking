@@ -16,14 +16,18 @@ const Dashboard = () => {
   const [hostRating, setHostRating] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🚀 SPRINT 8: Dark Mode State (remembers user preference)
+  // Dark Mode State
   const [darkMode, setDarkMode] = useState(localStorage.getItem("theme") === "dark");
 
+  // Filter States
   const [filterSkill, setFilterSkill] = useState("All");
   const [filterPrice, setFilterPrice] = useState("All");
+  // 🚀 NEW: Date and Time Filter States
+  const [filterDate, setFilterDate] = useState("");
+  const [filterTime, setFilterTime] = useState("");
+
   const navigate = useNavigate();
 
-  // 🚀 SPRINT 8: Apply Dark Mode to the <body> tag
   useEffect(() => {
     if (darkMode) {
       document.body.classList.add("dark-mode");
@@ -102,31 +106,39 @@ const Dashboard = () => {
     }
   };
 
-  // 🚀 SPRINT 9: Admin/Host Delete Function
   const handleDeleteGame = async () => {
     const confirmDelete = window.confirm("Are you sure you want to delete this game? This cannot be undone.");
     if (!confirmDelete) return;
 
     try {
         const token = localStorage.getItem("token");
-        // Matches your router.delete("/delete/:gameId")
         await axios.delete(`${import.meta.env.VITE_API_URL}/games/delete/${selectedGame.game_id}`, {
             headers: { token }
         });
         
         alert("🗑️ Game deleted successfully.");
-        setSelectedGame(null); // Close the side panel
-        fetchGames(); // Refresh the map pins
+        setSelectedGame(null); 
+        fetchGames(); 
     } catch (err) {
         alert(err.response?.data || "Error deleting game");
     }
   };
 
+  // 🚀 NEW: Updated Filtering Logic including Date and Time
   const filteredGames = games.filter((game) => {
     const matchSkill = filterSkill === "All" || game.skill_level === filterSkill;
     const isFree = parseFloat(game.price) === 0;
     const matchPrice = filterPrice === "All" || (filterPrice === "Free" && isFree) || (filterPrice === "Paid" && !isFree);
-    return matchSkill && matchPrice;
+    
+    // Parse the game's date into format YYYY-MM-DD and HH:MM
+    const gameDateObj = new Date(game.date_time);
+    const gameDateStr = gameDateObj.toISOString().split('T')[0];
+    const gameTimeStr = gameDateObj.toTimeString().slice(0, 5);
+
+    const matchDate = !filterDate || gameDateStr === filterDate;
+    const matchTime = !filterTime || gameTimeStr >= filterTime;
+
+    return matchSkill && matchPrice && matchDate && matchTime;
   });
 
   return (
@@ -136,8 +148,6 @@ const Dashboard = () => {
         <h1 style={{ color: "var(--primary)", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>🏀 CourtLink</h1>
         
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-          
-          {/* DARK MODE TOGGLE BUTTON */}
           <button 
             className="dark-mode-toggle" 
             onClick={() => setDarkMode(!darkMode)}
@@ -153,8 +163,8 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* FILTER BAR */}
-      <div className="filter-bar">
+      {/* 🚀 NEW: Updated Filter Bar with Date and Time */}
+      <div className="filter-bar" style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", marginBottom: "15px" }}>
         <strong style={{color: "var(--text-main)"}}>Filters:</strong>
         <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)} className="form-input" style={{width: "auto"}}>
             <option value="All">All Skills</option>
@@ -167,6 +177,28 @@ const Dashboard = () => {
             <option value="Free">Free Games</option>
             <option value="Paid">Paid Games</option>
         </select>
+        <input 
+            type="date" 
+            value={filterDate} 
+            onChange={(e) => setFilterDate(e.target.value)} 
+            className="form-input" 
+            style={{width: "auto"}}
+        />
+        <input 
+            type="time" 
+            value={filterTime} 
+            onChange={(e) => setFilterTime(e.target.value)} 
+            className="form-input" 
+            style={{width: "auto"}}
+        />
+        {(filterSkill !== "All" || filterPrice !== "All" || filterDate || filterTime) && (
+            <button 
+              onClick={() => { setFilterSkill("All"); setFilterPrice("All"); setFilterDate(""); setFilterTime(""); }} 
+              style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", textDecoration: "underline" }}
+            >
+              Clear Filters
+            </button>
+        )}
       </div>
       
       <div className="dashboard-grid">
@@ -220,7 +252,7 @@ const Dashboard = () => {
                 <p><strong>Level:</strong> {selectedGame.skill_level}</p>
                 <p><strong>Time:</strong> {new Date(selectedGame.date_time).toLocaleString()}</p>
 
-                {/* 🚀 SPRINT 9: ADMIN / HOST CONTROLS */}
+                {/* ADMIN / HOST CONTROLS */}
                 {user && (user.is_admin || String(user.id || user.user_id) === String(selectedGame.host_id)) && (
                     <div style={{ marginTop: "10px", marginBottom: "20px", padding: "15px", background: "var(--bg-color)", borderRadius: "var(--radius)", border: "1px dashed #ff7675" }}>
                         <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#d63031" }}>
@@ -233,6 +265,28 @@ const Dashboard = () => {
                         >
                             Delete Game 🗑️
                         </button>
+                    </div>
+                )}
+
+                {/* 🚀 NEW: The "Game is ON" Banner */}
+                {selectedGame.min_players && parseInt(selectedGame.player_count) >= parseInt(selectedGame.min_players) && (
+                    <div style={{ 
+                        background: "#d4edda", 
+                        border: "1px solid #c3e6cb", 
+                        color: "#155724", 
+                        padding: "12px", 
+                        borderRadius: "8px", 
+                        marginBottom: "20px", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: "10px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+                    }}>
+                        <span style={{ fontSize: "1.5rem" }}>✅</span>
+                        <div>
+                            <strong style={{ display: "block", fontSize: "1.1em" }}>Game is ON!</strong>
+                            <span style={{ fontSize: "0.9em" }}>The minimum number of players has been reached.</span>
+                        </div>
                     </div>
                 )}
 

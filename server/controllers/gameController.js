@@ -3,7 +3,7 @@ const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const sendConfirmationEmail = require("../utils/sendEmail");
 
-// 1. HOST A GAME (Upgraded with Address)
+// 1. HOST A GAME (Upgraded with Address and Min Players)
 exports.hostGame = async (req, res) => {
     try {
         const courtName = req.body.court_name || req.body.courtName;
@@ -11,10 +11,14 @@ exports.hostGame = async (req, res) => {
         const date = req.body.date_time || req.body.date;
         const skillLevel = req.body.skill_level || req.body.skillLevel;
         const maxPlayers = req.body.max_players || req.body.maxPlayers;
+        // 🚀 NEW: Extract min_players
+        const minPlayers = req.body.min_players || req.body.minPlayers;
         const { latitude, longitude, price } = req.body;
         
         const finalPrice = price ? parseFloat(price) : 0;
         const finalMaxPlayers = maxPlayers ? parseInt(maxPlayers) : 10;
+        // 🚀 NEW: Parse the minimum players (default to 4 if left blank)
+        const finalMinPlayers = minPlayers ? parseInt(minPlayers) : 4;
 
         const gameDate = new Date(date);
         const rightNow = new Date();
@@ -22,9 +26,10 @@ exports.hostGame = async (req, res) => {
             return res.status(400).json("Error: You cannot host a game in the past!");
         }
 
+        // 🚀 NEW: Added min_players to the SQL Insert query and the values array ($10)
         const newGame = await pool.query(
-            "INSERT INTO games (host_id, court_name, address, latitude, longitude, date_time, skill_level, price, max_players, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open') RETURNING *",
-            [req.user.id, courtName, address, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers]
+            "INSERT INTO games (host_id, court_name, address, latitude, longitude, date_time, skill_level, price, max_players, min_players, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open') RETURNING *",
+            [req.user.id, courtName, address, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers, finalMinPlayers]
         );
         
         await pool.query(
@@ -54,13 +59,14 @@ exports.getAllGames = async (req, res) => {
     }
 };
 
-// 3. JOIN GAME (Upgraded to email the Address)
+// 3. JOIN GAME (Upgraded to fetch min_players too)
 exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
+        // 🚀 NEW: Added min_players to the SELECT query
         const gameRes = await pool.query(`
-            SELECT max_players, court_name, address, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
+            SELECT max_players, min_players, court_name, address, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
         `, [gameId]);
         
@@ -161,9 +167,8 @@ exports.getMyGames = async (req, res) => {
 exports.deleteGame = async (req, res) => {
     try {
         const { gameId } = req.params;
-        const userId = req.user.id; // The user making the request
+        const userId = req.user.id; 
 
-        // 1. Get the user's admin status and the game's host ID
         const userQuery = await pool.query("SELECT is_admin FROM users WHERE user_id = $1", [userId]);
         const gameQuery = await pool.query("SELECT host_id FROM games WHERE game_id = $1", [gameId]);
 
@@ -174,37 +179,31 @@ exports.deleteGame = async (req, res) => {
         const isAdmin = userQuery.rows[0].is_admin;
         const hostId = gameQuery.rows[0].host_id;
 
-        // 2. Security Check: Are they the Host OR an Admin?
         if (!isAdmin && String(hostId) !== String(userId)) {
             return res.status(403).json("Not authorized! You can only delete your own games.");
         }
 
-        // 3. Find all players who paid for this game (they have a stripe_session_id)
         const paidPlayers = await pool.query(
             "SELECT stripe_session_id FROM game_players WHERE game_id = $1 AND stripe_session_id IS NOT NULL", 
             [gameId]
         );
 
-        // 4. Loop through and refund every single player
         for (let player of paidPlayers.rows) {
             try {
-                // We need to get the PaymentIntent ID from the Checkout Session to issue a refund
                 const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
                 
                 if (session.payment_intent) {
                     await stripe.refunds.create({
                         payment_intent: session.payment_intent,
-                        reason: 'requested_by_customer' // Standard Stripe reason for cancellation
+                        reason: 'requested_by_customer' 
                     });
                     console.log(`✅ Refunded session: ${player.stripe_session_id}`);
                 }
             } catch (stripeErr) {
-                // If one refund fails, we log it but keep trying to refund the others!
                 console.error(`❌ Failed to refund session ${player.stripe_session_id}:`, stripeErr.message);
             }
         }
 
-        // 5. Finally, delete the game from the database (No 'AND host_id' required now because we verified above)
         await pool.query("DELETE FROM games WHERE game_id = $1", [gameId]);
         
         res.status(200).json("Game deleted and refunds processed successfully!");
@@ -225,7 +224,7 @@ exports.leaveGame = async (req, res) => {
     }
 };
 
-// 8. GET PLAYERS FOR LOBBY (Upgraded to fetch Profile Data)
+// 8. GET PLAYERS FOR LOBBY 
 exports.getGamePlayers = async (req, res) => {
     try {
         const { gameId } = req.params;

@@ -8,31 +8,25 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
     date: "",
     skillLevel: "All Levels",
     maxPlayers: 10, 
+    minPlayers: 4, // 🚀 NEW: Added minPlayers to state
     price: 0        
   });
   
-  // 🚀 SPRINT 8: Added a loading state so the user knows we are fetching the address
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
-
-  // 🛑 SPRINT 6: Get current exact time formatted for the HTML input
   const today = new Date().toISOString().slice(0, 16);
 
-  // 🚀 SPRINT 8: Reverse Geocoding - Automatically grab the street address!
   useEffect(() => {
     const fetchAddress = async () => {
       if (coords) {
         setIsFetchingAddress(true);
         try {
-          // Talk to the free OpenStreetMap API
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`);
           const data = await res.json();
           
           if (data && data.display_name) {
-             // The API returns a very long string, so we split it by commas and take the first 3 pieces to make a clean street address
              const addressParts = data.display_name.split(", ");
              const cleanAddress = addressParts.slice(0, 3).join(", ");
              
-             // Update the form state automatically!
              setFormData(prev => ({ ...prev, address: cleanAddress }));
           }
         } catch (error) {
@@ -48,15 +42,22 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 🚀 NEW: Quick validation to ensure Min isn't higher than Max
+    if (parseInt(formData.minPlayers) > parseInt(formData.maxPlayers)) {
+      return alert("Minimum players cannot be greater than Maximum players!");
+    }
+
     try {
       const token = localStorage.getItem("token");
       
       const payload = {
         court_name: formData.courtName,
-        address: formData.address, // Sends the auto-filled address to backend
+        address: formData.address, 
         date_time: formData.date,
         skill_level: formData.skillLevel,
         max_players: formData.maxPlayers,
+        min_players: formData.minPlayers, // 🚀 NEW: Added to payload
         price: formData.price,
         latitude: coords.lat,
         longitude: coords.lng,
@@ -106,7 +107,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
               className="form-input"
               placeholder={isFetchingAddress ? "Locating address..." : "e.g. 155th St & Frederick Douglass Blvd"}
               required
-              value={formData.address} // 🚀 Binds the input box to our auto-fetched address
+              value={formData.address}
               onChange={(e) => setFormData({...formData, address: e.target.value})}
             />
           </div>
@@ -136,7 +137,21 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
             </select>
           </div>
 
+          {/* 🚀 NEW: Added the Min Players box next to Max Players */}
           <div className="flex-between" style={{ gap: "15px", marginBottom: "15px" }}>
+             <div className="form-group" style={{ flex: 1, margin: 0 }}>
+               <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Min Players</label>
+               <input
+                 type="number"
+                 min="2"
+                 max="30"
+                 className="form-input"
+                 value={formData.minPlayers}
+                 required
+                 onChange={(e) => setFormData({...formData, minPlayers: e.target.value})}
+               />
+             </div>
+
              <div className="form-group" style={{ flex: 1, margin: 0 }}>
                <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Max Players</label>
                <input
@@ -162,9 +177,9 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
                  required
                  onChange={(e) => setFormData({...formData, price: e.target.value})}
                />
-               <small style={{ color: "#888", display: "block", margin: "4px 0 0 0" }}>Set to 0 for Free</small>
              </div>
           </div>
+          <small style={{ color: "#888", display: "block", textAlign: "right", marginBottom: "15px" }}>Set price to 0 for Free</small>
 
           <div className="flex-between" style={{ marginTop: "20px" }}>
             <button type="button" onClick={onClose} className="btn" style={{ background: "#eee", color: "#333" }}>Cancel</button>
