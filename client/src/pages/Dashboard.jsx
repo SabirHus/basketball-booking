@@ -22,7 +22,6 @@ const Dashboard = () => {
   // Filter States
   const [filterSkill, setFilterSkill] = useState("All");
   const [filterPrice, setFilterPrice] = useState("All");
-  // 🚀 NEW: Date and Time Filter States
   const [filterDate, setFilterDate] = useState("");
   const [filterTime, setFilterTime] = useState("");
 
@@ -124,19 +123,46 @@ const Dashboard = () => {
     }
   };
 
-  // 🚀 NEW: Updated Filtering Logic including Date and Time
+  // 🚀 UPGRADED: "That day and forward" Filtering Logic
   const filteredGames = games.filter((game) => {
     const matchSkill = filterSkill === "All" || game.skill_level === filterSkill;
     const isFree = parseFloat(game.price) === 0;
     const matchPrice = filterPrice === "All" || (filterPrice === "Free" && isFree) || (filterPrice === "Paid" && !isFree);
     
-    // Parse the game's date into format YYYY-MM-DD and HH:MM
+    // Extract local year, month, day, hour, min safely to avoid Timezone bugs
     const gameDateObj = new Date(game.date_time);
-    const gameDateStr = gameDateObj.toISOString().split('T')[0];
-    const gameTimeStr = gameDateObj.toTimeString().slice(0, 5);
+    const year = gameDateObj.getFullYear();
+    const month = String(gameDateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(gameDateObj.getDate()).padStart(2, '0');
+    const gameDateStr = `${year}-${month}-${day}`;
+    
+    const hours = String(gameDateObj.getHours()).padStart(2, '0');
+    const mins = String(gameDateObj.getMinutes()).padStart(2, '0');
+    const gameTimeStr = `${hours}:${mins}`;
 
-    const matchDate = !filterDate || gameDateStr === filterDate;
-    const matchTime = !filterTime || gameTimeStr >= filterTime;
+    let matchDate = true;
+    let matchTime = true;
+
+    // Filter 1: If Date is selected, game must be ON OR AFTER that date
+    if (filterDate) {
+      matchDate = gameDateStr >= filterDate;
+    }
+
+    // Filter 2: If Time is selected
+    if (filterTime) {
+      if (filterDate) {
+         // If they picked a specific starting date, only enforce the time on that first day.
+         // Any game on the following days automatically passes the time check!
+         if (gameDateStr === filterDate) {
+           matchTime = gameTimeStr >= filterTime;
+         } else if (gameDateStr > filterDate) {
+           matchTime = true;
+         }
+      } else {
+         // If no date is picked, just show games from this time onward on whatever day they land.
+         matchTime = gameTimeStr >= filterTime;
+      }
+    }
 
     return matchSkill && matchPrice && matchDate && matchTime;
   });
@@ -163,7 +189,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* 🚀 NEW: Updated Filter Bar with Date and Time */}
+      {/* FILTER BAR */}
       <div className="filter-bar" style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", marginBottom: "15px" }}>
         <strong style={{color: "var(--text-main)"}}>Filters:</strong>
         <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)} className="form-input" style={{width: "auto"}}>
@@ -235,9 +261,22 @@ const Dashboard = () => {
               >
                 <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"var(--text-light)", marginBottom:"10px", fontWeight: "bold"}}>← Back to Map</button>
                 <h2 className="game-title">{selectedGame.court_name}</h2>
-                <p className={parseFloat(selectedGame.price) > 0 ? "price-badge-paid" : "price-badge-free"}>
-                    {parseFloat(selectedGame.price) > 0 ? `£${parseFloat(selectedGame.price).toFixed(2)}` : "FREE GAME"}
-                </p>
+                
+                {/* 🚀 UPGRADED: Price on left, Min/Max Players Box on the Right */}
+                <div className="flex-between" style={{ alignItems: "flex-start", marginBottom: "15px" }}>
+                  <p className={parseFloat(selectedGame.price) > 0 ? "price-badge-paid" : "price-badge-free"} style={{ margin: 0 }}>
+                      {parseFloat(selectedGame.price) > 0 ? `£${parseFloat(selectedGame.price).toFixed(2)}` : "FREE GAME"}
+                  </p>
+                  
+                  <div style={{ textAlign: "right", background: "var(--bg-color)", padding: "5px 10px", borderRadius: "8px", border: "1px solid var(--border-color, #eaeaea)" }}>
+                    <span style={{ display: "block", fontSize: "1.1em", fontWeight: "bold", color: "var(--text-main)" }}>
+                      👥 {selectedGame.player_count || 0} / {selectedGame.max_players}
+                    </span>
+                    <span style={{ fontSize: "0.85em", color: "var(--text-light)" }}>
+                      Min required: {selectedGame.min_players || 4}
+                    </span>
+                  </div>
+                </div>
                 
                 <div className="host-info-box">
                     <strong>Host:</strong> {selectedGame.username}
@@ -268,7 +307,7 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* 🚀 NEW: The "Game is ON" Banner */}
+                {/* The "Game is ON" Banner */}
                 {selectedGame.min_players && parseInt(selectedGame.player_count) >= parseInt(selectedGame.min_players) && (
                     <div style={{ 
                         background: "#d4edda", 
