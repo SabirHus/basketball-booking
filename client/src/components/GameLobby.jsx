@@ -173,4 +173,4 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
     );
 };
 
-export default GameL
+export default GameLobby;
