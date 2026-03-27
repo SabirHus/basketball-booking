@@ -4,46 +4,43 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+// Import modular routing controllers
 const gameRoutes = require("./routes/gameRoutes");
 const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
-// CRITICAL FOR RENDER: Trust the reverse proxy!
-// Without this, your rate limiter will block everyone instantly in production.
+// 1. INFRASTRUCTURE & PROXY CONFIGURATION
 app.set('trust proxy', 1);
 
-// --- 🔒 SECURITY TUNING ---
-
-// 1. Helmet: Configured to allow external images (like Cloudinary) to load safely
+// 2. SECURITY MIDDLEWARE
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 })); 
 
-// 2. Rate Limiter: Keeps your 500 limit for polling
+// API Rate Limiting to prevent brute-force login attempts and DDoS attacks
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 500, 
-    message: "Too many requests, please try again later.",
+    message: "Too many requests detected from this IP. Please try again later.",
     standardHeaders: true, 
-    legacyHeaders: false,
+    legacyHeaders: false, 
 });
 app.use(apiLimiter); 
 
-// --- 🌐 SMART CORS ---
-// In production, this reads your Vercel URL from Render's Environment Variables.
-// (It keeps localhost as a fallback just in case you ever need to test locally again).
+// 3. CORS (Cross-Origin Resource Sharing)
 const allowedOrigins = process.env.WEB_ORIGINS 
     ? process.env.WEB_ORIGINS.split(',') 
     : ['http://localhost:5173']; 
 
 const corsOptions = {
     origin: (origin, callback) => {
+        // Allow requests with no origin or from allowed origins
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.error("🚫 Blocked by CORS:", origin); 
-            callback(new Error('Not allowed by CORS'));
+            console.error("🚫 Blocked by CORS policy:", origin); 
+            callback(new Error('Origin not allowed by CORS'));
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -53,19 +50,23 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions)); 
+
+// Parse incoming JSON payloads
 app.use(express.json());
 
-// --- ROUTES ---
-app.get('/', (req, res) => {
-    res.send('CourtLink API is Live! 🚀');
+// 4. API ROUTING
+app.use("/games", gameRoutes);
+app.use("/auth", authRoutes);
+
+// Health check endpoint for cloud load balancers to verify uptime
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok", message: "CourtLink API is running smoothly." });
 });
 
-app.use('/auth', authRoutes);
-app.use("/games", gameRoutes);
-
+// 5. SERVER INITIALISATION
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-    console.log(`🌐 Allowed Origins: ${allowedOrigins.join(', ')}`);
+    console.log(`🚀 API Server successfully launched on port ${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

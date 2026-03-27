@@ -5,24 +5,31 @@ import axios from "axios";
 const Success = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const gameId = searchParams.get("gameId");
   
-  // 🚀 THE FIX: Grab the Stripe session ID from the URL that Stripe sent us back to
+  // Extract the game ID and Stripe checkout session ID from the callback URL parameters
+  const gameId = searchParams.get("gameId");
   const sessionId = searchParams.get("session_id"); 
   
+  // Use a ref to make sure the booking finalisation logic only runs once 
   const hasJoined = useRef(false);
 
   useEffect(() => {
     const finalizeBooking = async () => {
+      // Exit early if the booking process has already been initiated
       if (hasJoined.current) return;
       hasJoined.current = true;
+      
       try {
         await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${gameId}`, 
-          { sessionId }, // 🚀 THE FIX: Send the sessionId in the request body!
+          { sessionId }, 
           { headers: { token: localStorage.getItem("token") } }
         );
-      } catch (err) { console.error("Booking error:", err); }
+      } catch (err) { 
+        console.error("Booking finalisation failed:", err); 
+      }
     };
+    
+    // Only attempt to finalise the booking if a valid game ID is present in the URL
     if (gameId) finalizeBooking();
   }, [gameId, sessionId]);
 
@@ -30,7 +37,7 @@ const Success = () => {
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f6fa" }}>
       <div className="card" style={{ textAlign: "center", padding: "40px", maxWidth: "500px", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}>
         
-        {/* Animated Checkmark Simulation */}
+        {/* Visual success indicator */}
         <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "#e8f8f5", color: "#27ae60", fontSize: "40px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
             ✓
         </div>
@@ -50,6 +57,7 @@ const Success = () => {
             View My Bookings
           </button>
         </div>
+        
       </div>
     </div>
   );

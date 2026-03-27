@@ -4,9 +4,9 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Success from "./pages/Success";
-import "./App.css";
 
 function App() {
+  // Wrap the path components in a Router to enable client-side routing and navigation
   return (
     <Router>
       <Routes>

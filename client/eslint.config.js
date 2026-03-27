@@ -4,7 +4,9 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+// ESLint Flat Configuration to enforce code quality and standardise syntax
 export default defineConfig([
+  // Prevent the linter from scanning compiled production output
   globalIgnores(['dist']),
   {
     files: ['**/*.{js,jsx}'],
@@ -23,6 +25,7 @@ export default defineConfig([
       },
     },
     rules: {
+      // Warn developers about declared but unused variables to keep memory usage lean
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },

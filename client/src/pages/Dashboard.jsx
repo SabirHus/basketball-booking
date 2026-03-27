@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import CourtMap from "../components/CourtMap";
@@ -8,18 +8,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import SkeletonCard from "../components/SkeletonCard";
 
 const Dashboard = () => {
+  // Global application state
   const [user, setUser] = useState(null);
   const [games, setGames] = useState([]); 
   const [selectedGame, setSelectedGame] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [clickedCoords, setClickedCoords] = useState(null);
   const [hostRating, setHostRating] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Dark Mode State
+  // Modal and map interaction state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [clickedCoords, setClickedCoords] = useState(null);
+
+  // Read theme preference from local storage for persistence
   const [darkMode, setDarkMode] = useState(localStorage.getItem("theme") === "dark");
 
-  // Filter States
+  // Filter UI state
   const [filterSkill, setFilterSkill] = useState("All");
   const [filterPrice, setFilterPrice] = useState("All");
   const [filterDate, setFilterDate] = useState("");
@@ -27,6 +30,7 @@ const Dashboard = () => {
 
   const navigate = useNavigate();
 
+  // Apply dark mode class to the body tag
   useEffect(() => {
     if (darkMode) {
       document.body.classList.add("dark-mode");
@@ -37,6 +41,7 @@ const Dashboard = () => {
     }
   }, [darkMode]);
 
+  // Authenticate the user token against the backend before rendering dashboard features
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -48,54 +53,67 @@ const Dashboard = () => {
     }
   };
 
+  // Retrieve the master list of all active games from the database
   const fetchGames = async () => {
     try {
       setIsLoading(true);
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/all`);
       setGames(res.data);
+      
+      // If a user currently has a game selected we need to refresh its specific data too
       if (selectedGame) {
         const updated = res.data.find(g => g.game_id === selectedGame.game_id);
         if (updated) setSelectedGame(updated);
       }
     } catch (err) { 
-      console.error(err); 
+      console.error("Failed to fetch games roster:", err); 
     } finally {
+      // Delay to allow smooth skeleton loading animations
       setTimeout(() => setIsLoading(false), 500); 
     }
   };
 
+  // Load effect
   useEffect(() => {
     if (!localStorage.getItem("token")) return navigate("/");
     fetchUser(); 
     fetchGames(); 
   }, [navigate]);
 
+  // Fetch host reputation data whenever the user selects a new game pin
   useEffect(() => {
     const fetchRating = async () => {
-      if (selectedGame) {
-        try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/rating/${selectedGame.host_id}`);
-          setHostRating(res.data);
-        } catch (err) {
-          console.error("Failed to fetch host rating", err);
-          setHostRating(null);
-        }
+      if (!selectedGame) return;
+      
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/rating/${selectedGame.host_id}`);
+        setHostRating(res.data);
+      } catch (err) {
+        console.error("Failed to fetch host rating", err);
+        setHostRating(null);
       }
     };
+    
     fetchRating();
   }, [selectedGame]);
 
+  // Handle the logic for joining both free and paid games
   const handleJoinGame = async () => {
     if (!selectedGame) return;
-    const isFull = parseInt(selectedGame.player_count) >= selectedGame.max_players;
+    
+    const isFull = parseInt(selectedGame.player_count, 10) >= parseInt(selectedGame.max_players, 10);
     if (isFull) return alert("Sorry, this game is full!");
 
     try {
         const token = localStorage.getItem("token");
-        if (parseFloat(selectedGame.price) > 0) {
+        const price = parseFloat(selectedGame.price);
+        
+        if (price > 0) {
+            // Stripe checkout
             const res = await axios.post(`${import.meta.env.VITE_API_URL}/games/checkout/${selectedGame.game_id}`, {}, { headers: { token } });
             window.location.href = res.data.url;
         } else {
+            // Add user for free games
             await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${selectedGame.game_id}`, {}, { headers: { token } });
             alert("✅ Joined successfully for free!");
             fetchGames();
@@ -105,6 +123,7 @@ const Dashboard = () => {
     }
   };
 
+  // Allow main admin or original host to securely cancel and delete a game
   const handleDeleteGame = async () => {
     const confirmDelete = window.confirm("Are you sure you want to delete this game? This cannot be undone.");
     if (!confirmDelete) return;
@@ -123,53 +142,53 @@ const Dashboard = () => {
     }
   };
 
-  // 🚀 UPGRADED: "That day and forward" Filtering Logic
-  const filteredGames = games.filter((game) => {
-    const matchSkill = filterSkill === "All" || game.skill_level === filterSkill;
-    const isFree = parseFloat(game.price) === 0;
-    const matchPrice = filterPrice === "All" || (filterPrice === "Free" && isFree) || (filterPrice === "Paid" && !isFree);
-    
-    // Extract local year, month, day, hour, min safely to avoid Timezone bugs
-    const gameDateObj = new Date(game.date_time);
-    const year = gameDateObj.getFullYear();
-    const month = String(gameDateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(gameDateObj.getDate()).padStart(2, '0');
-    const gameDateStr = `${year}-${month}-${day}`;
-    
-    const hours = String(gameDateObj.getHours()).padStart(2, '0');
-    const mins = String(gameDateObj.getMinutes()).padStart(2, '0');
-    const gameTimeStr = `${hours}:${mins}`;
+  const filteredGames = useMemo(() => {
+    return games.filter((game) => {
+      const matchSkill = filterSkill === "All" || game.skill_level === filterSkill;
+      
+      const isFree = parseFloat(game.price) === 0;
+      const matchPrice = filterPrice === "All" || (filterPrice === "Free" && isFree) || (filterPrice === "Paid" && !isFree);
+      
+      // Extract local date segments safely to avoid cross-browser timezone bugs
+      const gameDateObj = new Date(game.date_time);
+      const year = gameDateObj.getFullYear();
+      const month = String(gameDateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(gameDateObj.getDate()).padStart(2, '0');
+      const gameDateStr = `${year}-${month}-${day}`;
+      
+      const hours = String(gameDateObj.getHours()).padStart(2, '0');
+      const mins = String(gameDateObj.getMinutes()).padStart(2, '0');
+      const gameTimeStr = `${hours}:${mins}`;
 
-    let matchDate = true;
-    let matchTime = true;
+      let matchDate = true;
+      let matchTime = true;
 
-    // Filter 1: If Date is selected, game must be ON OR AFTER that date
-    if (filterDate) {
-      matchDate = gameDateStr >= filterDate;
-    }
-
-    // Filter 2: If Time is selected
-    if (filterTime) {
       if (filterDate) {
-         // If they picked a specific starting date, only enforce the time on that first day.
-         // Any game on the following days automatically passes the time check!
-         if (gameDateStr === filterDate) {
-           matchTime = gameTimeStr >= filterTime;
-         } else if (gameDateStr > filterDate) {
-           matchTime = true;
-         }
-      } else {
-         // If no date is picked, just show games from this time onward on whatever day they land.
-         matchTime = gameTimeStr >= filterTime;
+        matchDate = gameDateStr >= filterDate;
       }
-    }
 
-    return matchSkill && matchPrice && matchDate && matchTime;
-  });
+      // Check if the game occurs after the selected time
+      if (filterTime) {
+        if (filterDate) {
+           // Time filtering only applies to games occurring on the selected date
+           if (gameDateStr === filterDate) {
+             matchTime = gameTimeStr >= filterTime;
+           } else if (gameDateStr > filterDate) {
+             matchTime = true;
+           }
+        } else {
+           // If no date is selected time check is applied across all games
+           matchTime = gameTimeStr >= filterTime;
+        }
+      }
+
+      return matchSkill && matchPrice && matchDate && matchTime;
+    });
+  }, [games, filterSkill, filterPrice, filterDate, filterTime]);
 
   return (
     <div className="container">
-      {/* HEADER */}
+      {/* Platform Header Navigation */}
       <header className="flex-between" style={{ marginBottom: "20px", padding: "10px 0", borderBottom: "1px solid var(--border-color, #eaeaea)" }}>
         <h1 style={{ color: "var(--primary)", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>🏀 CourtLink</h1>
         
@@ -189,20 +208,23 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* FILTER BAR */}
+      {/* Search and Filter Controls */}
       <div className="filter-bar" style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", marginBottom: "15px" }}>
         <strong style={{color: "var(--text-main)"}}>Filters:</strong>
+        
         <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)} className="form-input" style={{width: "auto"}}>
             <option value="All">All Skills</option>
             <option value="Beginner">Beginner</option>
             <option value="Intermediate">Intermediate</option>
             <option value="Advanced">Advanced</option>
         </select>
+        
         <select value={filterPrice} onChange={(e) => setFilterPrice(e.target.value)} className="form-input" style={{width: "auto"}}>
             <option value="All">All Prices</option>
             <option value="Free">Free Games</option>
             <option value="Paid">Paid Games</option>
         </select>
+        
         <input 
             type="date" 
             value={filterDate} 
@@ -210,6 +232,7 @@ const Dashboard = () => {
             className="form-input" 
             style={{width: "auto"}}
         />
+        
         <input 
             type="time" 
             value={filterTime} 
@@ -217,6 +240,8 @@ const Dashboard = () => {
             className="form-input" 
             style={{width: "auto"}}
         />
+        
+        {/* Render a reset button if any filters are currently active */}
         {(filterSkill !== "All" || filterPrice !== "All" || filterDate || filterTime) && (
             <button 
               onClick={() => { setFilterSkill("All"); setFilterPrice("All"); setFilterDate(""); setFilterTime(""); }} 
@@ -227,6 +252,7 @@ const Dashboard = () => {
         )}
       </div>
       
+      {/* Main Dashboard Layout */}
       <div className="dashboard-grid">
         <div className="map-wrapper" style={{position: "relative"}}>
           <CourtMap 
@@ -236,6 +262,7 @@ const Dashboard = () => {
                  setSelectedGame(data.game); 
                  setClickedCoords(null); 
                } else { 
+                 // Clicking empty map space passes coordinates up to trigger the hosting modal
                  setClickedCoords(data); 
                  setSelectedGame(null); 
                  setIsModalOpen(true); 
@@ -262,7 +289,6 @@ const Dashboard = () => {
                 <button onClick={() => setSelectedGame(null)} style={{background:"none", border:"none", cursor:"pointer", color:"var(--text-light)", marginBottom:"10px", fontWeight: "bold"}}>← Back to Map</button>
                 <h2 className="game-title">{selectedGame.court_name}</h2>
                 
-                {/* 🚀 UPGRADED: Price on left, Min/Max Players Box on the Right */}
                 <div className="flex-between" style={{ alignItems: "flex-start", marginBottom: "15px" }}>
                   <p className={parseFloat(selectedGame.price) > 0 ? "price-badge-paid" : "price-badge-free"} style={{ margin: 0 }}>
                       {parseFloat(selectedGame.price) > 0 ? `£${parseFloat(selectedGame.price).toFixed(2)}` : "FREE GAME"}
@@ -291,7 +317,7 @@ const Dashboard = () => {
                 <p><strong>Level:</strong> {selectedGame.skill_level}</p>
                 <p><strong>Time:</strong> {new Date(selectedGame.date_time).toLocaleString()}</p>
 
-                {/* ADMIN / HOST CONTROLS */}
+                {/* Secure administrative controls for the game owner and platform admins */}
                 {user && (user.is_admin || String(user.id || user.user_id) === String(selectedGame.host_id)) && (
                     <div style={{ marginTop: "10px", marginBottom: "20px", padding: "15px", background: "var(--bg-color)", borderRadius: "var(--radius)", border: "1px dashed #ff7675" }}>
                         <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#d63031" }}>
@@ -307,8 +333,8 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* The "Game is ON" Banner */}
-                {selectedGame.min_players && parseInt(selectedGame.player_count) >= parseInt(selectedGame.min_players) && (
+                {/* Conditional UI rendering indicating the game has reached capacity */}
+                {selectedGame.min_players && parseInt(selectedGame.player_count, 10) >= parseInt(selectedGame.min_players, 10) && (
                     <div style={{ 
                         background: "#d4edda", 
                         border: "1px solid #c3e6cb", 
@@ -354,7 +380,7 @@ const Dashboard = () => {
         </aside>
       </div>
       
-      {/* HOST GAME MODAL */}
+      {/* Conditionally render the hosting modal over the viewport */}
       {isModalOpen && clickedCoords && (
         <HostGameModal 
           coords={clickedCoords} 

@@ -1,18 +1,17 @@
-# 📦 Dependencies
+# Dependencies
 node_modules/
 
-# 🔐 Environment Variables
+# Environment Variables
 .env
 .env.local
 .env.development
 .env.production
-# (Note: We DO NOT ignore .env.example so it gets pushed to GitHub!)
 
-# 📝 Logs
+# Logs
 logs
 *.log
 npm-debug.log*
 
-# 🍏 OS Generated Files
+# OS Generated Files
 .DS_Store
 Thumbs.db

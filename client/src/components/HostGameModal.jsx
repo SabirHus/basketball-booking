@@ -2,50 +2,58 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 
 const HostGameModal = ({ coords, onClose, onGameHosted }) => {
+  // Initialise the form state with default values
   const [formData, setFormData] = useState({
     courtName: "",
     address: "", 
     date: "",
     skillLevel: "All Levels",
     maxPlayers: 10, 
-    minPlayers: 4, // 🚀 NEW: Added minPlayers to state
+    minPlayers: 4, 
     price: 0        
   });
   
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+  
+  // Get the current date and time formatted correctly for the HTML datetime-local input
   const today = new Date().toISOString().slice(0, 16);
 
+  // Automatically fetch the street address using reverse geocoding when the modal opens
   useEffect(() => {
     const fetchAddress = async () => {
-      if (coords) {
-        setIsFetchingAddress(true);
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`);
-          const data = await res.json();
-          
-          if (data && data.display_name) {
-             const addressParts = data.display_name.split(", ");
-             const cleanAddress = addressParts.slice(0, 3).join(", ");
-             
-             setFormData(prev => ({ ...prev, address: cleanAddress }));
-          }
-        } catch (error) {
-          console.error("Could not fetch address:", error);
-        } finally {
-          setIsFetchingAddress(false);
+      if (!coords) return;
+      
+      setIsFetchingAddress(true);
+      
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`);
+        const data = await res.json();
+        
+        if (data && data.display_name) {
+           // The API returns a very long string so its split and keep the first three segments for clean UI
+           const addressParts = data.display_name.split(", ");
+           const cleanAddress = addressParts.slice(0, 3).join(", ");
+           
+           setFormData(prev => ({ ...prev, address: cleanAddress }));
         }
+      } catch (error) {
+        console.error("Could not fetch address data:", error);
+      } finally {
+        setIsFetchingAddress(false);
       }
     };
 
     fetchAddress();
-  }, [coords]);
+    
+  // Lat/lng values instead of the coords object to prevent unnecessary API calls
+  }, [coords?.lat, coords?.lng]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 🚀 NEW: Quick validation to ensure Min isn't higher than Max
-    if (parseInt(formData.minPlayers) > parseInt(formData.maxPlayers)) {
-      return alert("Minimum players cannot be greater than Maximum players!");
+    // Validate player capacity constraints before hitting the backend
+    if (parseInt(formData.minPlayers, 10) > parseInt(formData.maxPlayers, 10)) {
+      return alert("Minimum players cannot be greater than the maximum capacity.");
     }
 
     try {
@@ -57,31 +65,32 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
         date_time: formData.date,
         skill_level: formData.skillLevel,
         max_players: formData.maxPlayers,
-        min_players: formData.minPlayers, // 🚀 NEW: Added to payload
+        min_players: formData.minPlayers, 
         price: formData.price,
         latitude: coords.lat,
-        longitude: coords.lng,
+        longitude: coords.lng
       };
 
       await axios.post(`${import.meta.env.VITE_API_URL}/games/host`, payload, {
-        headers: { token: token },
+        headers: { token: token }
       });
 
-      alert("Game Hosted Successfully! 🏀");
+      alert("Game hosted successfully! 🏀");
       onGameHosted(); 
       onClose(); 
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data || "Error hosting game. Check console.");
+      console.error("Failed to host game:", err);
+      alert(err.response?.data || "An error occurred while hosting the game. Check the console for details.");
     }
   };
 
   return (
     <div className="modal-overlay">
       <div className="modal-content">
+        
         <div className="flex-between" style={{ marginBottom: "20px" }}>
            <h2 style={{ margin: 0 }}>Host a Game 📍</h2>
-           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:"1.5em", cursor:"pointer" }}>&times;</button>
+           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.5em", cursor: "pointer" }}>&times;</button>
         </div>
         
         <p style={{ color: "#666", marginBottom: "20px" }}>
@@ -90,7 +99,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Where are we playing?</label>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Where are we playing?</label>
             <input
               type="text"
               className="form-input"
@@ -101,7 +110,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
           </div>
 
           <div className="form-group">
-            <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Street Address</label>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Street Address</label>
             <input
               type="text"
               className="form-input"
@@ -113,7 +122,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
           </div>
 
           <div className="form-group">
-             <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>When?</label>
+             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>When?</label>
              <input
               type="datetime-local"
               className="form-input"
@@ -124,7 +133,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
           </div>
 
           <div className="form-group">
-            <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Skill Level</label>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Skill Level</label>
             <select 
               className="form-input"
               value={formData.skillLevel}
@@ -137,10 +146,9 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
             </select>
           </div>
 
-          {/* 🚀 NEW: Added the Min Players box next to Max Players */}
           <div className="flex-between" style={{ gap: "15px", marginBottom: "15px" }}>
              <div className="form-group" style={{ flex: 1, margin: 0 }}>
-               <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Min Players</label>
+               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Min Players</label>
                <input
                  type="number"
                  min="2"
@@ -153,7 +161,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
              </div>
 
              <div className="form-group" style={{ flex: 1, margin: 0 }}>
-               <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Max Players</label>
+               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Max Players</label>
                <input
                  type="number"
                  min="2"
@@ -166,7 +174,7 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
              </div>
 
              <div className="form-group" style={{ flex: 1, margin: 0 }}>
-               <label style={{display: "block", marginBottom: "5px", fontWeight: "bold"}}>Price (£)</label>
+               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Price (£)</label>
                <input
                  type="number"
                  min="0"
@@ -179,13 +187,17 @@ const HostGameModal = ({ coords, onClose, onGameHosted }) => {
                />
              </div>
           </div>
-          <small style={{ color: "#888", display: "block", textAlign: "right", marginBottom: "15px" }}>Set price to 0 for Free</small>
+          
+          <small style={{ color: "#888", display: "block", textAlign: "right", marginBottom: "15px" }}>
+            Set price to 0 for Free
+          </small>
 
           <div className="flex-between" style={{ marginTop: "20px" }}>
             <button type="button" onClick={onClose} className="btn" style={{ background: "#eee", color: "#333" }}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={isFetchingAddress}>Confirm Game</button>
           </div>
         </form>
+        
       </div>
     </div>
   );

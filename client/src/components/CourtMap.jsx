@@ -1,60 +1,66 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
 import 'leaflet-geosearch/dist/geosearch.css';
-
-// Default Blue Pin (For games that haven't reached the minimum yet)
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+// Blue pin for default court locations
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// 🚀 SPRINT 8: Custom Orange Pin just for Search Results!
-let OrangeIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+// Orange pin to highlight location after search bar
+const OrangeIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
 
-// 🚀 NEW: Custom Green Pin for "Game ON"
-let GreenIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+// Green pin for go ahead games
+const GreenIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
+
+// Function to sanitise user input
+const escapeHTML = (str) => {
+  const div = document.createElement('div');
+  div.innerText = str;
+  return div.innerHTML;
+};
 
 const CourtMap = ({ onMapClick, games = [], searchLocation }) => { 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersLayerRef = useRef(null);
 
-  // 1. Initialize Map
+  // Initialise the map and map controls
   useEffect(() => {
     if (!mapInstanceRef.current && mapContainerRef.current) {
-      const map = L.map(mapContainerRef.current).setView([53.4875, -2.2748], 13); // Default: Manchester
+      // Default coordinates set to central Manchester
+      const map = L.map(mapContainerRef.current).setView([53.4875, -2.2748], 13); 
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      // Add the Search Bar
+      // Address Search Functionality
       const provider = new OpenStreetMapProvider();
       const searchControl = new GeoSearchControl({
         provider: provider,
         style: 'bar', 
         showMarker: true, 
         marker: {
-          icon: OrangeIcon, // Uses our Orange Pin!
+          icon: OrangeIcon, 
           draggable: false,
         },
         retainZoomLevel: false,
@@ -64,10 +70,10 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
       });
       map.addControl(searchControl);
 
-      // Create a layer group for existing game markers
+      // Clear and redraw markers later
       markersLayerRef.current = L.layerGroup().addTo(map);
 
-      // NORMAL CLICK LISTENER: Opens the Host Game Modal
+      // Click to Host Games
       map.on('click', (e) => {
         const { lat, lng } = e.latlng;
         if (onMapClick) onMapClick({ lat, lng });
@@ -75,28 +81,36 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
 
       mapInstanceRef.current = map;
     }
-  }, []); // Only runs once
 
-  // 2. SEARCH LOGIC (If triggered from outside the map)
+    // Cleanup function to prevent memory leaks and map duplication errors
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [onMapClick]); 
+
+  // Handle external search commands passed down as props from parent components
   useEffect(() => {
     if (mapInstanceRef.current && searchLocation) {
         mapInstanceRef.current.flyTo([searchLocation.lat, searchLocation.lon], 15);
     }
   }, [searchLocation]);
 
-  // 3. RENDER PINS (Real Games)
+  // Render map markers whenever the game data updates
   useEffect(() => {
     if (mapInstanceRef.current && markersLayerRef.current) {
+      // Clear previous pins to prevent stacking duplicates
       markersLayerRef.current.clearLayers();
 
       games.forEach((game) => {
-        // 🚀 NEW: Check if the game has reached the minimum players
-        const isGameOn = game.min_players && parseInt(game.player_count) >= parseInt(game.min_players);
+        // Check if the game has met its minimum player requirement
+        const isGameOn = game.min_players && parseInt(game.player_count, 10) >= parseInt(game.min_players, 10);
         
-        // Pick the right color pin based on the status
+        // Assign the pin colour based on the game status
         const pinColor = isGameOn ? GreenIcon : DefaultIcon;
 
-        // Place the marker with the chosen color
         const marker = L.marker([game.latitude, game.longitude], { icon: pinColor }).addTo(markersLayerRef.current);
 
         marker.on('click', (e) => {
@@ -104,19 +118,22 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
             if (onMapClick) onMapClick({ game: game });
         });
         
-        // 🚀 NEW: Update tooltip to show the status
+        // Sanitise the court name before injecting it into the HTML tooltip
+        const safeCourtName = escapeHTML(game.court_name);
         const statusText = isGameOn ? `<br><span style="color: green; font-weight: bold;">✅ Game ON</span>` : '';
-        marker.bindTooltip(`<b>${game.court_name}</b><br>Players: ${game.player_count || 0} / ${game.max_players}${statusText}`); 
+        
+        marker.bindTooltip(`<b>${safeCourtName}</b><br>Players: ${game.player_count || 0} / ${game.max_players}${statusText}`); 
       });
     }
-  }, [games]);
+  }, [games, onMapClick]);
 
-  // GPS Geolocation Logic
+  // GPS locater on red pin
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+      alert("Geolocation is not supported by your browser.");
       return;
     }
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -124,7 +141,7 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
           mapInstanceRef.current.flyTo([latitude, longitude], 14); 
         }
       },
-      () => alert("Unable to retrieve your location. Check browser permissions.")
+      () => alert("Unable to retrieve your location. Check your browser permissions.")
     );
   };
 

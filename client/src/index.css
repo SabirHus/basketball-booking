@@ -1,5 +1,6 @@
 :root {
-  /* --- COLOR PALETTE --- */
+  /* GLOBAL DESIGN TOKENS */
+  /* Using CSS variables ensures instantaneous theme switching across the entire DOM */
   --primary: #ff5722;       
   --primary-hover: #e64a19; 
   --secondary: #2d3436;     
@@ -12,7 +13,7 @@
   --radius: 12px;
 }
 
-/* 🌙 DARK MODE OVERRIDES */
+/* DARK MODE OVERRIDES */
 body.dark-mode {
   --bg-color: #121212;
   --card-bg: #1e1e1e;
@@ -23,15 +24,14 @@ body.dark-mode {
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* =========================================
-   1. BASE & UTILITIES
-   ========================================= */
+/* 1. BASE & BODY UTILITIES */
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
+  /* Hardware-accelerated transitions for smooth theme toggling */
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -47,9 +47,7 @@ body {
   align-items: center;
 }
 
-/* =========================================
-   2. BUTTONS & INPUTS
-   ========================================= */
+/* 2. BUTTONS & INPUT ELEMENTS */
 .btn {
   cursor: pointer;
   border: none;
@@ -104,7 +102,6 @@ body {
   outline: none;
 }
 
-/* Dark Mode Toggle Button */
 .dark-mode-toggle {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -122,9 +119,7 @@ body {
   transform: scale(1.05);
 }
 
-/* =========================================
-   3. AUTHENTICATION PAGES
-   ========================================= */
+/* 3. AUTHENTICATION */
 .auth-wrapper {
   min-height: 100vh;
   display: flex;
@@ -171,9 +166,7 @@ body {
   color: var(--secondary);
 }
 
-/* =========================================
-   4. DASHBOARD & LAYOUT
-   ========================================= */
+/* 4. DASHBOARD */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -211,9 +204,7 @@ body {
   flex-wrap: wrap;
 }
 
-/* =========================================
-   5. GAME DETAILS & MODALS
-   ========================================= */
+/* 5. GAME DETAILS & MODAL UI */
 .game-title {
   color: var(--primary);
   margin: 0 0 5px 0;
@@ -278,7 +269,6 @@ body {
   line-height: 1.5;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -304,7 +294,6 @@ body {
   overflow-y: auto;
 }
 
-/* GPS Button */
 .gps-btn {
   position: absolute;
   bottom: 20px;
@@ -329,9 +318,7 @@ body {
   transform: scale(1.1);
 }
 
-/* =========================================
-   6. LOBBY & CHAT UI
-   ========================================= */
+/* 6. LOBBY & REAL-TIME CHAT UI*/
 .lobby-players-card {
   background: var(--bg-color);
   border-radius: 12px;
@@ -507,7 +494,7 @@ body {
   color: var(--primary);
 }
 
-/* Skeleton */
+/* 7. LOADING SKELETON ANIMATIONS*/
 .skeleton-pulse {
   animation: pulse 1.5s infinite ease-in-out;
 }
@@ -565,11 +552,9 @@ body {
   border-radius: 8px;
 }
 
-/* =========================================
-   7. RESPONSIVE DESIGN (Tablets & Phones)
-   ========================================= */
+/* 8. RESPONSIVE MEDIA QUERIES*/
 
-/* TABLETS (Under 992px) */
+/* Tablets and smaller screens */
 @media (max-width: 992px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -582,7 +567,7 @@ body {
   }
 }
 
-/* PHONES (Under 600px) */
+/* Mobile device */
 @media (max-width: 600px) {
   .container {
     padding: 10px;
@@ -625,7 +610,8 @@ body {
   }
 }
 
-/* 🚀 BONUS: Make the Map look incredible in Dark Mode! */
+/* DARK MODE */
+/* This prevents Leaflet from needing to download a secondary set of image tiles */
 body.dark-mode .leaflet-layer {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }

@@ -3,35 +3,37 @@ const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const sendConfirmationEmail = require("../utils/sendEmail");
 
-// 1. HOST A GAME (Upgraded with Address and Min Players)
+// 1. HOST A NEW GAME
 exports.hostGame = async (req, res) => {
     try {
+        // Normalise incoming payload data to handle potential frontend casing variations
         const courtName = req.body.court_name || req.body.courtName;
         const address = req.body.address || "Address not provided"; 
         const date = req.body.date_time || req.body.date;
         const skillLevel = req.body.skill_level || req.body.skillLevel;
         const maxPlayers = req.body.max_players || req.body.maxPlayers;
-        // 🚀 NEW: Extract min_players
         const minPlayers = req.body.min_players || req.body.minPlayers;
         const { latitude, longitude, price } = req.body;
         
+        // Parse numerics safely applying defaults where necessary
         const finalPrice = price ? parseFloat(price) : 0;
-        const finalMaxPlayers = maxPlayers ? parseInt(maxPlayers) : 10;
-        // 🚀 NEW: Parse the minimum players (default to 4 if left blank)
-        const finalMinPlayers = minPlayers ? parseInt(minPlayers) : 4;
+        const finalMaxPlayers = maxPlayers ? parseInt(maxPlayers, 10) : 10;
+        const finalMinPlayers = minPlayers ? parseInt(minPlayers, 10) : 4;
 
+        // Prevent users from scheduling games in the past
         const gameDate = new Date(date);
-        const rightNow = new Date();
-        if (gameDate < rightNow) {
-            return res.status(400).json("Error: You cannot host a game in the past!");
+        if (gameDate < new Date()) {
+            return res.status(400).json("Error: You cannot host a game in the past.");
         }
 
-        // 🚀 NEW: Added min_players to the SQL Insert query and the values array ($10)
+        // Persist the game data into the relational database
         const newGame = await pool.query(
-            "INSERT INTO games (host_id, court_name, address, latitude, longitude, date_time, skill_level, price, max_players, min_players, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open') RETURNING *",
+            `INSERT INTO games (host_id, court_name, address, latitude, longitude, date_time, skill_level, price, max_players, min_players, status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open') RETURNING *`,
             [req.user.id, courtName, address, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers, finalMinPlayers]
         );
         
+        // Automatically enrol the host as the first player in the roster
         await pool.query(
             "INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)",
             [newGame.rows[0].game_id, req.user.id]
@@ -39,55 +41,62 @@ exports.hostGame = async (req, res) => {
 
         res.json(newGame.rows[0]); 
     } catch (err) { 
-        console.error("Host Error:", err);
+        console.error("Host Game Error:", err);
         res.status(500).send("Server Error"); 
     }
 };
 
-// 2. GET ALL GAMES
+// 2. FETCH ALL ACTIVE GAMES
 exports.getAllGames = async (req, res) => {
     try {
+        // Execute a relational query to retrieve games host details and a computed player count
         const allGames = await pool.query(`
             SELECT games.*, users.username, 
             (SELECT COUNT(*) FROM game_players WHERE game_players.game_id = games.game_id) as player_count 
-            FROM games JOIN users ON games.host_id = users.user_id
+            FROM games 
+            JOIN users ON games.host_id = users.user_id
         `);
         res.json(allGames.rows);
     } catch (err) { 
-        console.error("Get All Error:", err);
+        console.error("Fetch Games Error:", err);
         res.status(500).send("Server Error"); 
     }
 };
 
-// 3. JOIN GAME (Upgraded to fetch min_players too)
+// 3. JOIN A FREE GAME
 exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
-        // 🚀 NEW: Added min_players to the SELECT query
+        // Verify game existence and retrieve capacity metrics
         const gameRes = await pool.query(`
-            SELECT max_players, min_players, court_name, address, date_time, price, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
+            SELECT max_players, min_players, court_name, address, date_time, price, 
+            (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
         `, [gameId]);
         
-        if (gameRes.rows.length === 0) return res.status(404).json("Game not found");
+        if (gameRes.rows.length === 0) return res.status(404).json("Game not found.");
         
         const game = gameRes.rows[0]; 
 
-        if (parseInt(game.player_count) >= game.max_players) {
-            return res.status(400).json("Game is full!");
+        // Enforce maximum capacity constraints
+        if (parseInt(game.player_count, 10) >= parseInt(game.max_players, 10)) {
+            return res.status(400).json("This game has reached maximum capacity.");
         }
 
+        // Prevent duplicate enrolments
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
-        if (check.rows.length > 0) return res.status(400).json("You already joined this game!");
+        if (check.rows.length > 0) return res.status(400).json("You have already joined this game.");
 
         const { sessionId } = req.body;
 
+        // Append user to the roster recording the Stripe session ID if applicable
         await pool.query(
             "INSERT INTO game_players (game_id, user_id, stripe_session_id) VALUES ($1, $2, $3)", 
             [gameId, req.user.id, sessionId || null]
         );
 
+        // Fetch user details to dispatch a confirmation email
         const userRes = await pool.query("SELECT username, email FROM users WHERE user_id = $1", [req.user.id]);
         const user = userRes.rows[0];
 
@@ -100,31 +109,34 @@ exports.joinGame = async (req, res) => {
     }
 };
 
-// 4. STRIPE CHECKOUT (Paid Games)
+// 4. INITIATE STRIPE CHECKOUT
 exports.createCheckout = async (req, res) => {
     try {
         const { gameId } = req.params;
         const userId = req.user.id;
 
+        // Perform standard capacity and duplication checks before processing payment
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, userId]);
-        if (check.rows.length > 0) return res.status(400).json("Already joined!");
+        if (check.rows.length > 0) return res.status(400).json("You have already joined this game.");
 
         const gameRes = await pool.query(`
             SELECT *, (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
             FROM games WHERE game_id = $1
         `, [gameId]);
         
-        if (gameRes.rows.length === 0) return res.status(404).json("Not found");
+        if (gameRes.rows.length === 0) return res.status(404).json("Game not found.");
         
         const [game] = gameRes.rows; 
 
-        if (parseInt(game.player_count) >= game.max_players) {
-            return res.status(400).json("Game is full!");
+        if (parseInt(game.player_count, 10) >= parseInt(game.max_players, 10)) {
+            return res.status(400).json("This game has reached maximum capacity.");
         }
 
+        // Stripe requires financial calculations to be processed in the smallest currency unit (pennies)
         const dbPrice = parseFloat(game.price);
         const stripePriceInPennies = Math.round(dbPrice * 100);
 
+        // Generate a secure Stripe hosted checkout session
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "payment",
@@ -142,33 +154,38 @@ exports.createCheckout = async (req, res) => {
 
         res.json({ url: session.url });
     } catch (err) {
-        console.error("👉 STRIPE CRASH REASON:", err.message);
-        res.status(500).send("Server Error");
+        console.error("Stripe Initialization Error:", err.message);
+        res.status(500).send("Server Error processing checkout");
     }
 };
 
-// 5. GET MY GAMES
+// 5. FETCH USER SPECIFIC GAMES
 exports.getMyGames = async (req, res) => {
     try {
+        // Retrieve games where the user is the designated host
         const hosted = await pool.query("SELECT * FROM games WHERE host_id = $1 ORDER BY date_time ASC", [req.user.id]);
+        
+        // Retrieve games where the user exists in the roster via a SQL JOIN
         const joined = await pool.query(`
-            SELECT games.* FROM games JOIN game_players ON games.game_id = game_players.game_id 
+            SELECT games.* FROM games 
+            JOIN game_players ON games.game_id = game_players.game_id 
             WHERE game_players.user_id = $1 ORDER BY games.date_time ASC
         `, [req.user.id]);
         
         res.json({ hosted: hosted.rows, joined: joined.rows });
     } catch (err) { 
-        console.error("Get My Games Error:", err);
+        console.error("Fetch My Games Error:", err);
         res.status(500).send("Server Error"); 
     }
 };
 
-// 🚀 6. DELETE A GAME, REFUND PLAYERS, AND ALLOW ADMIN DELETION (Sprint 9)
+// 6. DELETE GAME & PROCESS AUTOMATED REFUNDS
 exports.deleteGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         const userId = req.user.id; 
 
+        // Retrieve administrative context for authorisation checks
         const userQuery = await pool.query("SELECT is_admin FROM users WHERE user_id = $1", [userId]);
         const gameQuery = await pool.query("SELECT host_id FROM games WHERE game_id = $1", [gameId]);
 
@@ -179,15 +196,18 @@ exports.deleteGame = async (req, res) => {
         const isAdmin = userQuery.rows[0].is_admin;
         const hostId = gameQuery.rows[0].host_id;
 
+        // Security Check: Only the host or a platform admin can delete a game
         if (!isAdmin && String(hostId) !== String(userId)) {
-            return res.status(403).json("Not authorized! You can only delete your own games.");
+            return res.status(403).json("Unauthorised. You can only delete your own games.");
         }
 
+        // Identify all users requiring financial reimbursement
         const paidPlayers = await pool.query(
             "SELECT stripe_session_id FROM game_players WHERE game_id = $1 AND stripe_session_id IS NOT NULL", 
             [gameId]
         );
 
+        // Iterate through each paid player and attempt to process a refund via the Stripe API
         for (let player of paidPlayers.rows) {
             try {
                 const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
@@ -197,19 +217,20 @@ exports.deleteGame = async (req, res) => {
                         payment_intent: session.payment_intent,
                         reason: 'requested_by_customer' 
                     });
-                    console.log(`✅ Refunded session: ${player.stripe_session_id}`);
+                    console.log(`✅ Automated refund processed for session: ${player.stripe_session_id}`);
                 }
             } catch (stripeErr) {
-                console.error(`❌ Failed to refund session ${player.stripe_session_id}:`, stripeErr.message);
+                console.error(`❌ Refund failed for session ${player.stripe_session_id}:`, stripeErr.message);
             }
         }
 
+        // Delete the core game record (Relying on PostgreSQL ON DELETE CASCADE to clear related table data)
         await pool.query("DELETE FROM games WHERE game_id = $1", [gameId]);
         
-        res.status(200).json("Game deleted and refunds processed successfully!");
+        res.status(200).json("Game cancelled and automated refunds processed successfully.");
     } catch (err) { 
-        console.error("Delete/Refund Error:", err);
-        res.status(500).send("Server Error processing refunds"); 
+        console.error("Game Deletion Error:", err);
+        res.status(500).send("Server Error during deletion sequence."); 
     }
 };
 
@@ -217,14 +238,14 @@ exports.deleteGame = async (req, res) => {
 exports.leaveGame = async (req, res) => {
     try {
         await pool.query("DELETE FROM game_players WHERE game_id = $1 AND user_id = $2", [req.params.gameId, req.user.id]);
-        res.json("Left");
+        res.json("Successfully left the game.");
     } catch (err) { 
-        console.error("Leave Error:", err);
+        console.error("Leave Game Error:", err);
         res.status(500).send("Server Error"); 
     }
 };
 
-// 8. GET PLAYERS FOR LOBBY 
+// 8. FETCH LOBBY ROSTER
 exports.getGamePlayers = async (req, res) => {
     try {
         const { gameId } = req.params;
@@ -236,12 +257,12 @@ exports.getGamePlayers = async (req, res) => {
         `, [gameId]);
         res.json(players.rows);
     } catch (err) {
-        console.error("Get Players Error:", err);
+        console.error("Fetch Players Error:", err);
         res.status(500).send("Server Error");
     }
 };
 
-// 9. GET MESSAGES FOR LOBBY
+// 9. FETCH LOBBY MESSAGES
 exports.getGameMessages = async (req, res) => {
     try {
         const { gameId } = req.params;
@@ -254,19 +275,20 @@ exports.getGameMessages = async (req, res) => {
         `, [gameId]);
         res.json(messages.rows);
     } catch (err) {
-        console.error("Get Messages Error:", err);
+        console.error("Fetch Messages Error:", err);
         res.status(500).send("Server Error");
     }
 };
 
-// 10. SEND MESSAGE IN LOBBY
+// 10. DISPATCH LOBBY MESSAGE
 exports.sendMessage = async (req, res) => {
     try {
         const { gameId } = req.params;
         const { message } = req.body;
         
+        // Only active roster members can broadcast messages to the lobby
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
-        if (check.rows.length === 0) return res.status(403).json("You must join the game to chat.");
+        if (check.rows.length === 0) return res.status(403).json("Unauthorised. You must join the roster to chat.");
 
         const newMessage = await pool.query(
             "INSERT INTO game_messages (game_id, user_id, message) VALUES ($1, $2, $3) RETURNING *",
@@ -275,12 +297,12 @@ exports.sendMessage = async (req, res) => {
         
         res.json(newMessage.rows[0]);
     } catch (err) {
-        console.error("Send Message Error:", err);
+        console.error("Message Dispatch Error:", err);
         res.status(500).send("Server Error");
     }
 };
 
-// 11. RATE A HOST
+// 11. SUBMIT POST-GAME HOST RATING
 exports.rateHost = async (req, res) => {
     try {
         const { gameId } = req.params;
@@ -290,14 +312,16 @@ exports.rateHost = async (req, res) => {
         const gameRes = await pool.query("SELECT date_time FROM games WHERE game_id = $1", [gameId]);
         if (gameRes.rows.length === 0) return res.status(404).json("Game not found.");
         
+        // Prevent users from rating hosts before the scheduled event has concluded
         const gameDate = new Date(gameRes.rows[0].date_time);
         if (gameDate > new Date()) {
-            return res.status(400).json("You can only rate the host AFTER the game has finished!");
+            return res.status(400).json("Ratings cannot be submitted until the game has concluded.");
         }
 
+        // Prevent review bombing by enforcing a single rating per user per game
         const checkRating = await pool.query("SELECT * FROM host_ratings WHERE game_id = $1 AND rater_id = $2", [gameId, raterId]);
         if (checkRating.rows.length > 0) {
-            return res.status(400).json("You have already rated the host for this game.");
+            return res.status(400).json("You have already submitted a rating for this host.");
         }
 
         await pool.query(
@@ -305,17 +329,19 @@ exports.rateHost = async (req, res) => {
             [gameId, raterId, hostId, rating]
         );
 
-        res.json("Rating submitted successfully!");
+        res.json("Rating recorded successfully.");
     } catch (err) {
         console.error("Rate Host Error:", err);
         res.status(500).send("Server Error");
     }
 };
 
-// 12. GET A HOST'S AVERAGE RATING
+// 12. COMPUTE HOST REPUTATION METRICS
 exports.getHostRating = async (req, res) => {
     try {
         const { hostId } = req.params;
+        
+        // Compute the aggregate score dynamically directly within the SQL layer for efficiency
         const result = await pool.query(`
             SELECT ROUND(AVG(rating), 1) as avg_rating, COUNT(rating) as total_ratings 
             FROM host_ratings WHERE host_id = $1
@@ -323,7 +349,7 @@ exports.getHostRating = async (req, res) => {
         
         res.json(result.rows[0]);
     } catch (err) {
-        console.error("Get Rating Error:", err);
+        console.error("Fetch Host Rating Error:", err);
         res.status(500).send("Server Error");
     }
 };

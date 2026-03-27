@@ -3,19 +3,21 @@ const authController = require("../controllers/authController");
 const authorize = require("../middleware/authorization"); 
 const upload = require("../middleware/upload");
 
-// POST http://localhost:5000/auth/register
-router.post("/register", authController.register);
+// AUTHENTICATION & IDENTITY ROUTES
 
-// POST http://localhost:5000/auth/login
+// Public routes for user onboarding and session generation
+router.post("/register", authController.register);
 router.post("/login", authController.login);
 
-// GET http://localhost:5000/auth/verify (Protected)
-router.get("/verify", authorize, authController.getName);
+// Lightweight protected route used by the React frontend to verify token validity on page load
+router.get("/verify", authorize, authController.verify);
 
-// PROFILE ROUTES
+// PROFILE MANAGEMENT ROUTES
+
+// Retrieve the authenticated user's profile data
 router.get("/profile", authorize, authController.getProfile);
 
-// Note: upload.single('image') tells Multer to look for an uploaded file named 'image'
+// Update the authenticated user's profile information, including optional profile image upload
 router.put("/profile", authorize, upload.single('image'), authController.updateProfile);
 
 module.exports = router;

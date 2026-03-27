@@ -1,53 +1,70 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
 const GameLobby = ({ game, currentUser, onJoin }) => {
+    // Start up state for the lobby roster and real-time chat
     const [players, setPlayers] = useState([]);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
 
-    const fetchLobbyData = async () => {
+    // Function to fetch current players and messages in the lobby
+    const fetchLobbyData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const playerRes = await axios.get(`${import.meta.env.VITE_API_URL}/games/players/${game.game_id}`, { headers: { token } });
-            setPlayers(playerRes.data);
+            const [playerRes, msgRes] = await Promise.all([
+                axios.get(`${import.meta.env.VITE_API_URL}/games/players/${game.game_id}`, { headers: { token } }),
+                axios.get(`${import.meta.env.VITE_API_URL}/games/messages/${game.game_id}`, { headers: { token } })
+            ]);
 
-            const msgRes = await axios.get(`${import.meta.env.VITE_API_URL}/games/messages/${game.game_id}`, { headers: { token } });
+            setPlayers(playerRes.data);
             setMessages(msgRes.data);
         } catch (err) {
             console.error("Error fetching lobby data:", err);
         }
-    };
-
-    useEffect(() => {
-        fetchLobbyData();
-        const interval = setInterval(fetchLobbyData, 2000); 
-        return () => clearInterval(interval);
     }, [game.game_id]);
 
+    // Load lobby data on component mount and set an interval to refresh
+    useEffect(() => {
+        fetchLobbyData();
+        
+        // Refresh data every 5 seconds
+        const interval = setInterval(fetchLobbyData, 5000); 
+        
+        // Clean up the interval on unmount
+        return () => clearInterval(interval);
+    }, [fetchLobbyData]);
+
+    // Send a new chat message
     const handleSendMessage = async (e) => {
         e.preventDefault();
+        
+        // Stops blank messsages being sent
         if (!newMessage.trim()) return;
+        
         try {
             const token = localStorage.getItem("token");
             await axios.post(`${import.meta.env.VITE_API_URL}/games/messages/${game.game_id}`, { message: newMessage }, { headers: { token } });
+            
+            // Clear the input and display new message
             setNewMessage("");
             fetchLobbyData();
         } catch (err) {
-            console.error(err);
+            console.error("Failed to send message:", err);
         }
     };
 
-    const currentUserId = String(currentUser?.id || currentUser?.user_id).toLowerCase();
+    // Extract user details to check their membership status
+    const currentUserId = currentUser ? String(currentUser.id || currentUser.user_id).toLowerCase() : "";
     const currentUsername = currentUser?.username;
 
+    // Check if the current user exists
     const hasJoined = players.some(p => 
         String(p.user_id).toLowerCase() === currentUserId || 
         p.username === currentUsername
     );
     
-    // Check if the game is full
-    const isFull = parseInt(game.player_count) >= game.max_players;
+    // Determine if the game has reached its max
+    const isFull = parseInt(game.player_count, 10) >= parseInt(game.max_players, 10);
 
     return (
         <div style={{ marginTop: "20px" }}>
@@ -70,14 +87,14 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                                 display: "flex", alignItems: "center", gap: "12px", background: "var(--bg-color)",
                                 padding: "10px", borderRadius: "8px", border: `1px solid ${isMe ? "var(--primary)" : "var(--border-color)"}`
                             }}>
-                                {/* Avatar */}
+                                {/* Player Avatar */}
                                 <img
                                     src={p.profile_pic || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"}
                                     alt={p.username}
                                     style={{ width: "45px", height: "45px", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--primary)" }}
                                 />
                                 
-                                {/* Info */}
+                                {/* Player Information */}
                                 <div style={{ flex: 1, textAlign: "left" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <strong style={{ fontSize: "15px", color: "var(--text-main)" }}>
@@ -97,7 +114,7 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                 </div>
             </div>
 
-            {/* --- 2. THE JOIN BUTTON --- */}
+            {/* --- 2. JOIN GAME BUTTON --- */}
             {!hasJoined && (
                 <button 
                     onClick={onJoin} 
@@ -111,16 +128,16 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                 </button>
             )}
 
-            {/* --- 3. THE CHAT SECTION --- */}
+            {/* --- 3. SECURE LOCKER ROOM CHAT --- */}
             {hasJoined ? (
                 <div className="chat-container" style={{ marginTop: "20px" }}>
                     <div className="chat-header">💬 Locker Room Chat</div>
                     
                     <div className="chat-messages">
-                        {messages.length > 0 ? messages.map(msg => {
+                        {messages.length > 0 ? messages.map((msg, index) => {
                             const isMe = String(msg.user_id).toLowerCase() === currentUserId || msg.username === currentUsername;
                             return (
-                                <div key={msg.message_id || Math.random()} className={`chat-wrapper ${isMe ? "is-me" : "is-other"}`}>
+                                <div key={msg.message_id || index} className={`chat-wrapper ${isMe ? "is-me" : "is-other"}`}>
                                     <span className="chat-sender">{msg.username}</span>
                                     <div className={`chat-bubble ${isMe ? "is-me" : "is-other"}`}>
                                         {msg.message}
@@ -156,4 +173,4 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
     );
 };
 
-export default GameLobby;
+export default GameL

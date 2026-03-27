@@ -1,14 +1,12 @@
 const Pool = require("pg").Pool;
 require("dotenv").config();
 
-/* This config fixes the "Buffering/Timeout" issue by 
-   forcing the server to accept Neon's SSL certificate.
-*/
+/* PostgreSQL Database Connection Pool */
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL, 
   ssl: {
-    rejectUnauthorized: false, // <--- THIS STOPS THE HANGING
+    rejectUnauthorized: false, 
   },
 });
 
