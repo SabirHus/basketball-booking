@@ -100,7 +100,7 @@ exports.updateProfile = async (req, res) => {
             profilePicUrl = req.file.path; 
         }
 
-        // Execute a parameterized query to update the user's profile information, including the new profile picture URL if provided
+        // Execute a parameterised query to update the user's profile information, including the new profile picture URL if provided
         const updatedUser = await pool.query(
             `UPDATE users 
              SET bio = $1, position = $2, profile_pic = $3 

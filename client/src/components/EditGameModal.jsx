@@ -1,41 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
+import { OpenStreetMapProvider } from 'leaflet-geosearch';
 
 const EditGameModal = ({ game, onClose, onGameUpdated }) => {
-  // Pre-fill the form with every detail from the existing game
+  // Initialise form data with existing game details, converting date to the correct format for the datetime-local input
   const [formData, setFormData] = useState({
     courtName: game.court_name,
     address: game.address,
+    latitude: game.latitude,
+    longitude: game.longitude,
     date: new Date(game.date_time).toISOString().slice(0, 16), 
     skillLevel: game.skill_level,
     maxPlayers: game.max_players,
     minPlayers: game.min_players || 4,
     price: game.price
   });
-  
+
+  // State for the address autocomplete feature
+  const [addressQuery, setAddressQuery] = useState(game.address);
+  const [addressResults, setAddressResults] = useState([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Initialise the map provider
+  const provider = new OpenStreetMapProvider();
+
+  // Effect to search for addresses as the user types, with a debounce of 1 second
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+        // Only search if the query has actually changed from the saved address
+        if (addressQuery && addressQuery !== formData.address) {
+            setIsSearchingAddress(true);
+            try {
+                // Fetch real addresses matching their input
+                const results = await provider.search({ query: addressQuery });
+                setAddressResults(results);
+            } catch (err) {
+                console.error("Address search failed", err);
+            } finally {
+                setIsSearchingAddress(false);
+            }
+        } else {
+            setAddressResults([]); // Clear dropdown if input is empty or matches existing
+        }
+    }, 1000);
+
+    // Cleanup the timeout if they keep typing
+    return () => clearTimeout(timeoutId);
+  }, [addressQuery, formData.address]);
+
+  // Handle when the user clicks a real address from the dropdown
+  const handleSelectAddress = (result) => {
+      setFormData({
+          ...formData,
+          address: result.label,     
+          latitude: result.y,         
+          longitude: result.x         
+      });
+      setAddressQuery(result.label);  
+      setAddressResults([]);        
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Safety check: Ensure they actually selected a verified address from the dropdown
+    if (addressQuery !== formData.address) {
+        return alert("Please select a verified address from the dropdown list before saving.");
+    }
+
     setLoading(true);
 
     try {
-      let finalLat = game.latitude;
-      let finalLng = game.longitude;
-
-      // Only call geocoding API if the address was changed, to avoid unnecessary API calls and rate limits
-      if (formData.address !== game.address) {
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}`);
-          const geoData = await geoRes.json();
-          
-          if (geoData && geoData.length > 0) {
-              finalLat = parseFloat(geoData[0].lat);
-              finalLng = parseFloat(geoData[0].lon);
-          } else {
-              alert("Warning: Could not find exact map coordinates for this address. Using previous map pin location.");
-          }
-      }
-
       const token = localStorage.getItem("token");
       
       const payload = {
@@ -46,8 +82,8 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
         max_players: formData.maxPlayers,
         min_players: formData.minPlayers,
         price: formData.price,
-        latitude: finalLat,
-        longitude: finalLng
+        latitude: formData.latitude,
+        longitude: formData.longitude
       };
 
       await axios.put(`${import.meta.env.VITE_API_URL}/games/edit/${game.game_id}`, payload, {
@@ -74,9 +110,52 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
             <input type="text" className="form-input" value={formData.courtName} onChange={(e) => setFormData({...formData, courtName: e.target.value})} required />
           </div>
 
-          <div className="form-group">
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Street Address (Changes Map Pin)</label>
-            <input type="text" className="form-input" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} required />
+          {/* Address Autocomplete Input */}
+          <div className="form-group" style={{ position: "relative" }}>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+                Street Address <span style={{ color: "var(--primary)", fontSize: "0.8em", fontWeight: "normal" }}>(Changes Map Pin)</span>
+            </label>
+            <input 
+                type="text" 
+                className="form-input" 
+                value={addressQuery} 
+                onChange={(e) => setAddressQuery(e.target.value)} 
+                placeholder="Start typing an address..."
+                required 
+            />
+            {isSearchingAddress && <small style={{ color: "var(--text-light)", display: "block", marginTop: "5px" }}>Searching global map data...</small>}
+            
+            {/* The Dropdown Menu for Search Results */}
+            {addressResults.length > 0 && (
+                <ul style={{ 
+                    position: "absolute", 
+                    top: "100%", left: 0, right: 0, 
+                    background: "var(--bg-color)", 
+                    border: "1px solid var(--border-color)", 
+                    borderRadius: "4px", 
+                    maxHeight: "200px", overflowY: "auto", 
+                    listStyle: "none", padding: 0, margin: "5px 0 0 0", 
+                    zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                }}>
+                    {addressResults.map((result, index) => (
+                        <li 
+                            key={index} 
+                            onClick={() => handleSelectAddress(result)}
+                            style={{ 
+                                padding: "10px", 
+                                borderBottom: "1px solid var(--border-color)", 
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                color: "var(--text-main)"
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = "var(--border-color)"}
+                            onMouseLeave={(e) => e.target.style.background = "transparent"}
+                        >
+                            📍 {result.label}
+                        </li>
+                    ))}
+                </ul>
+            )}
           </div>
 
           <div className="form-group">
@@ -112,8 +191,8 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
           </div>
 
           <div style={{ display: "flex", gap: "10px", marginTop: "25px" }}>
-            <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 1 }}>
-              {loading ? "Saving & Locating..." : "Save Changes"}
+            <button type="submit" className="btn btn-primary" disabled={loading || addressQuery !== formData.address} style={{ flex: 1 }}>
+              {loading ? "Saving..." : "Save Changes"}
             </button>
             <button type="button" onClick={onClose} className="btn" style={{ flex: 1, background: "var(--border-color)", color: "var(--text-main)" }}>
               Cancel

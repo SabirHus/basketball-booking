@@ -9,7 +9,6 @@ const Terms = () => {
             <p>CourtLink promotes a safe and inclusive environment. Harassment, violence, or unsportsmanlike conduct will result in account suspension. Hosts reserve the right to remove players from their games.</p>
             <h3>3. Liability</h3>
             <p>Basketball is a physical sport. By participating in games booked through CourtLink, you assume all risks associated with physical injury. CourtLink is not liable for any injuries sustained during events.</p>
-            <p><em>Last Updated: March 2026</em></p>
         </div>
     );
 };

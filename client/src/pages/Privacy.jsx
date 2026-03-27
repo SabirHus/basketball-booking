@@ -9,7 +9,6 @@ const Privacy = () => {
             <p>Your data is used strictly for platform operations: sending booking confirmations, processing refunds, and displaying your profile picture to your teammates. We do not sell your personal data to third parties.</p>
             <h3>3. Cookies</h3>
             <p>We use local storage (JWT tokens) to keep you securely logged into your account.</p>
-            <p><em>Last Updated: March 2026</em></p>
         </div>
     );
 };
