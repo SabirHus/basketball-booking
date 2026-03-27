@@ -8,13 +8,19 @@ Live URL: https://thecourtlink.com/
 
 ## Core Features
 
-* ** Interactive Geolocation Map:** Powered by Leaflet.js, users can browse in local courts, or search through a geocoding search landing built-in, or open the browser GPS to find games nearby.
-* ** Dynamic Capacity UI:** Map pins and lobby interfaces dynamically react to database states. Once the game attains the number of players needed by the host of the game, the UI will instantly change to reflect that the game is "ON".
-* ** Forward-Facing Temporal Filtering:** A custom algorithm enables the user to filter the dashboard not just accodingly to specific date, but also match the games occurring since this very date and time.
-* ** Automated Reverse Geocoding:** WWhen a single pin is dropped by the host on the map to create a game, the location will automatically be provided with the OpenStreetMap API which will subsequently import and process a real world street address.
-* ** Secure Payments & Automated Refunds:** Full integration with **Stripe Checkout**. When a paid game is removed by a host or an admin, all the funded players are automatically refunded.
-* ** Real-Time Game Lobbies:** Dedicated post-join lobbies featuring real-time messaging, player rosters, and host rating systems.
-* ** Role-Based Access Control:** Secure JWT-authentication to distance regular user-persons and game hosts and platform administrators such that only registered and authenticated persons have access to deletion and moderation tools.
+* **Interactive Geolocation Map:** Powered by Leaflet.js, users can browse in local courts, search through a geocoding search landing built-in, or open the browser GPS to find games nearby.
+* **Dynamic Capacity UI:** Map pins and lobby interfaces dynamically react to database states. Once the game attains the number of players needed by the host of the game, the UI will instantly change to reflect that the game is "ON".
+* **Forward-Facing Temporal Filtering:** A custom algorithm enables the user to filter the dashboard not just according to a specific date, but also match the games occurring since this very date and time.
+* **Auto-Expiring Map Pins:** The backend SQL logic dynamically filters temporal data (`date_time >= NOW()`), ensuring expired games automatically vanish from the map to keep the UI uncluttered.
+* **Automated Reverse Geocoding:** When a single pin is dropped by the host on the map to create a game, the location will automatically be provided with the OpenStreetMap API which will subsequently import and process a real-world street address.
+* **Forward Geocoding & Address Autocomplete:** Integrated `leaflet-geosearch` into the game-editing flow. Hosts must select verified global addresses, which are mathematically converted into precise GPS coordinates to maintain strict spatial database integrity.
+* **Secure Payments & Automated Refunds:** Full integration with **Stripe Checkout**. When a paid game is removed by a host or an admin, all the funded players are automatically refunded.
+* **Event-Driven Email Automation:** Integrated with the Resend API to automatically dispatch dynamic HTML emails for booking confirmations, cancellations, player kicks, and capacity milestones (instantly notifying the roster when the "Game is ON").
+* **State Mutation Diff-Tracking:** When a host edits a game, the backend sequentially fetches the historical state, compares it to the new payload, and emails the roster a visually "diffed" breakdown of exactly what changed (e.g., old times crossed out in red, new times highlighted in green).
+* **Real-Time Game Lobbies:** Dedicated post-join lobbies featuring real-time messaging, player rosters, and host rating systems.
+* **Dynamic UPSERT Rating System:** Advanced SQL operations allow users to seamlessly update and overwrite their previous post-game host ratings without triggering duplicate-key errors.
+* **Role-Based Access Control:** Secure JWT-authentication to distance regular user-persons and game hosts and platform administrators such that only registered and authenticated persons have access to deletion and moderation tools.
+* **Legal & Financial Compliance:** Mandatory UI checkpoints requiring users to agree to platform Terms & Conditions and Privacy Policies before Stripe payment gateways are unlocked.
 
 ---
 
@@ -24,13 +30,14 @@ This application utilises the **PERN** stack, optimised for performance and scal
 
 ### **Frontend**
 * **React.js (Vite):** Selected because of hot Module Replacement (HMR) and fast builds.
-* **React-Leaflet:** For rendering complex, interactive map layers.
+* **React-Leaflet & Leaflet-Geosearch:** For rendering complex, interactive map layers and handling global address autocomplete APIs.
 * **Framer Motion:** This package is used to perform transitions between user interfaces and modal-style animations.
-* **CSS3 / Tailwind:**  Completely responsive design with a permanent dark / light mode switch with the use of localStorage.
+* **CSS3 / Tailwind:** Completely responsive design with a permanent dark / light mode switch decoupled into a globally accessible React component using localStorage.
 
 ### **Backend**
 * **Node.js & Express.js:** Node.js based/RESTful API architecture routing, middleware and business logic purposes.
 * **Stripe API:** Financial infrastructure of conducting secure checkout sessions and asynchronous webhook refunds.
+* **Resend API:** For orchestrating automated, programmatic HTML transactional emails.
 * **JWT & bcrypt:** For secure user authentication and password hashing.
 
 ---
