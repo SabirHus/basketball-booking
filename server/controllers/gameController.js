@@ -415,21 +415,24 @@ exports.editGame = async (req, res) => {
         const { gameId } = req.params;
         const { court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude } = req.body;
         
-        // Update the game details
-        const updatedGame = await pool.query(
+        // 1. Fetch the OLD game details FIRST
+        const oldGameRes = await pool.query("SELECT * FROM games WHERE game_id = $1 AND host_id = $2", [gameId, req.user.id]);
+        if (oldGameRes.rows.length === 0) {
+             return res.status(403).json("Unauthorised. Only the host can edit this game.");
+        }
+        const oldGame = oldGameRes.rows[0];
+
+        // 2. Update the game in the database
+        const updatedGameRes = await pool.query(
             `UPDATE games 
              SET court_name = $1, address = $2, date_time = $3, skill_level = $4, 
                  max_players = $5, min_players = $6, price = $7, latitude = $8, longitude = $9 
              WHERE game_id = $10 AND host_id = $11 RETURNING *`,
             [court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude, gameId, req.user.id]
         );
+        const newGame = updatedGameRes.rows[0];
 
-        // If no rows were updated, it means either the game doesn't exist or the user is not the host
-        if (updatedGame.rows.length === 0) {
-             return res.status(403).json("Unauthorised. Only the host can edit this game.");
-        }
-
-        // Fetch all players currently on the roster (excluding the host)
+        // 3. Fetch all players currently on the roster (excluding the host)
         const allPlayers = await pool.query(
             `SELECT u.email, u.username 
              FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
@@ -437,22 +440,12 @@ exports.editGame = async (req, res) => {
             [gameId, req.user.id] 
         );
 
-        // Notify all players about the update with the new details
+        // 4. Send the comparison emails
         for (let player of allPlayers.rows) {
-            sendUpdateEmail(
-                player.email, 
-                player.username, 
-                court_name, 
-                date_time, 
-                address, 
-                min_players, 
-                max_players, 
-                price, 
-                skill_level
-            );
+            sendUpdateEmail(player.email, player.username, court_name, oldGame, newGame);
         }
         
-        res.json("Game updated successfully. Players have been notified.");
+        res.json("Game updated successfully. Players have been notified of the changes.");
     } catch (err) {
         console.error("Edit Game Error:", err);
         res.status(500).send("Server Error");

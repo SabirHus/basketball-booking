@@ -98,13 +98,31 @@ const sendKickedEmail = async (userEmail, userName, courtName, dateTime, wasPaid
 };
 
 // 4. UPDATE EMAIL (Game Edited)
-const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newAddress, newMinPlayers, newMaxPlayers, newPrice, newSkillLevel) => {
+const sendUpdateEmail = async (userEmail, userName, courtName, oldGame, newGame) => {
     try {
-        const gameDate = new Date(newDateTime);
-        const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        const formattedTime = gameDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        const displayAddress = newAddress ? newAddress : "Address not provided";
-        const displayPrice = parseFloat(newPrice) > 0 ? `£${parseFloat(newPrice).toFixed(2)}` : "FREE";
+        // Helper function to format dates cleanly
+        const formatDateTime = (isoString) => {
+            const d = new Date(isoString);
+            return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+        };
+
+        const oldDate = formatDateTime(oldGame.date_time);
+        const newDate = formatDateTime(newGame.date_time);
+
+        const formatPrice = (p) => parseFloat(p) > 0 ? `£${parseFloat(p).toFixed(2)}` : "FREE";
+        const oldPrice = formatPrice(oldGame.price);
+        const newPrice = formatPrice(newGame.price);
+
+        const oldCap = `Min ${oldGame.min_players} / Max ${oldGame.max_players}`;
+        const newCap = `Min ${newGame.min_players} / Max ${newGame.max_players}`;
+
+        // Helper function to generate the Before -> After HTML text
+        const diffText = (oldVal, newVal) => {
+            if (oldVal !== newVal) {
+                return `<span style="color: #d63031; text-decoration: line-through;">${oldVal}</span> <span style="font-weight: bold; color: #2d3436;">➔</span> <span style="color: #27ae60; font-weight: bold;">${newVal}</span>`;
+            }
+            return `<span style="color: #2d3436;">${newVal}</span>`; // No change
+        };
 
         await resend.emails.send({
             from: process.env.MAIL_FROM, 
@@ -118,16 +136,18 @@ const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newA
                         </div>
                         <div style="padding: 30px;">
                             <p>Hey <strong>${userName}</strong>,</p>
-                            <p>The host has updated the details for an upcoming game you are joined to. Here is the latest information:</p>
-                            <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #0984e3; margin: 20px 0;">
-                                <h3>📍 ${courtName}</h3>
-                                <p><strong>Address:</strong> ${displayAddress}</p>
-                                <p><strong>Date/Time:</strong> ${formattedDate} at ${formattedTime}</p>
-                                <p><strong>Price:</strong> ${displayPrice}</p>
-                                <p><strong>Skill Level:</strong> ${newSkillLevel}</p>
-                                <p><strong>Capacity Requirements:</strong> Min ${newMinPlayers} / Max ${newMaxPlayers} players</p>
+                            <p>The host has updated the details for an upcoming game you are joined to. Changes are highlighted below:</p>
+                            
+                            <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #0984e3; margin: 20px 0; line-height: 1.8;">
+                                <h3 style="margin-top: 0; color: #0984e3;">📍 ${courtName}</h3>
+                                <div><strong>Date/Time:</strong> ${diffText(oldDate, newDate)}</div>
+                                <div><strong>Address:</strong> ${diffText(oldGame.address || 'Not provided', newGame.address)}</div>
+                                <div><strong>Price:</strong> ${diffText(oldPrice, newPrice)}</div>
+                                <div><strong>Skill Level:</strong> ${diffText(oldGame.skill_level, newGame.skill_level)}</div>
+                                <div><strong>Capacity:</strong> ${diffText(oldCap, newCap)}</div>
                             </div>
-                            <p>If these new details no longer work for you, you can leave the roster from your Profile page.</p>
+                            
+                            <p>If these new details no longer work for you, you can easily leave the roster from your Profile page.</p>
                             <p>See you on the court!</p>
                         </div>
                     </div>
