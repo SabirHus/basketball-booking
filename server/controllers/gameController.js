@@ -424,7 +424,7 @@ exports.editGame = async (req, res) => {
             [court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude, gameId, req.user.id]
         );
 
-        // If no rows were updated, either the game doesn't exist or the user isn't the host
+        // If no rows were updated, it means either the game doesn't exist or the user is not the host
         if (updatedGame.rows.length === 0) {
              return res.status(403).json("Unauthorised. Only the host can edit this game.");
         }
@@ -437,9 +437,19 @@ exports.editGame = async (req, res) => {
             [gameId, req.user.id] 
         );
 
-        // Fire off the update emails to everyone on the roster
+        // Notify all players about the update with the new details
         for (let player of allPlayers.rows) {
-            sendUpdateEmail(player.email, player.username, court_name, date_time, address);
+            sendUpdateEmail(
+                player.email, 
+                player.username, 
+                court_name, 
+                date_time, 
+                address, 
+                min_players, 
+                max_players, 
+                price, 
+                skill_level
+            );
         }
         
         res.json("Game updated successfully. Players have been notified.");

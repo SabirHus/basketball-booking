@@ -98,22 +98,23 @@ const sendKickedEmail = async (userEmail, userName, courtName, dateTime, wasPaid
 };
 
 // 4. UPDATE EMAIL (Game Edited)
-const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newAddress) => {
+const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newAddress, newMinPlayers, newMaxPlayers, newPrice, newSkillLevel) => {
     try {
         const gameDate = new Date(newDateTime);
         const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const formattedTime = gameDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         const displayAddress = newAddress ? newAddress : "Address not provided";
+        const displayPrice = parseFloat(newPrice) > 0 ? `£${parseFloat(newPrice).toFixed(2)}` : "FREE";
 
         await resend.emails.send({
             from: process.env.MAIL_FROM, 
             to: userEmail,
-            subject: "🔄 CourtLink: Game Update",
+            subject: "🔄 CourtLink: Game Details Updated",
             html: `
                 <div style="font-family: sans-serif; background-color: #f4f6f8; padding: 20px 0;">
                     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
                         <div style="background-color: #0984e3; padding: 20px; text-align: center; color: white;">
-                            <h2>Game Details Updated</h2>
+                            <h2>Game Details Updated 🔄</h2>
                         </div>
                         <div style="padding: 30px;">
                             <p>Hey <strong>${userName}</strong>,</p>
@@ -122,7 +123,11 @@ const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newA
                                 <h3>📍 ${courtName}</h3>
                                 <p><strong>Address:</strong> ${displayAddress}</p>
                                 <p><strong>Date/Time:</strong> ${formattedDate} at ${formattedTime}</p>
+                                <p><strong>Price:</strong> ${displayPrice}</p>
+                                <p><strong>Skill Level:</strong> ${newSkillLevel}</p>
+                                <p><strong>Capacity Requirements:</strong> Min ${newMinPlayers} / Max ${newMaxPlayers} players</p>
                             </div>
+                            <p>If these new details no longer work for you, you can leave the roster from your Profile page.</p>
                             <p>See you on the court!</p>
                         </div>
                     </div>
