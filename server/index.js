@@ -31,7 +31,7 @@ app.use(apiLimiter);
 // 3. CORS (Cross-Origin Resource Sharing)
 const allowedOrigins = process.env.WEB_ORIGINS 
     ? process.env.WEB_ORIGINS.split(',') 
-    : ['http://localhost:5173']; 
+    : ['https://thecourtlink.com', 'https://www.thecourtlink.com'];
 
 const corsOptions = {
     origin: (origin, callback) => {

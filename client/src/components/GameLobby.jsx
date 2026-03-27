@@ -100,9 +100,32 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
                                         <strong style={{ fontSize: "15px", color: "var(--text-main)" }}>
                                             {p.username} {isMe && <span style={{color: "var(--primary)", fontSize: "12px"}}>(You)</span>}
                                         </strong>
-                                        <span style={{ fontSize: "11px", background: "var(--primary)", color: "white", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold" }}>
-                                            {p.position || "Not Specified"}
-                                        </span>
+                                        
+                                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                            <span style={{ fontSize: "11px", background: "var(--primary)", color: "white", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold" }}>
+                                                {p.position || "Not Specified"}
+                                            </span>
+
+                                            {/* Kick Player Button */}
+                                            {currentUser && String(game.host_id) === currentUserId && !isMe && (
+                                                <button 
+                                                    onClick={async () => {
+                                                        if(window.confirm(`Are you sure you want to kick ${p.username}?`)) {
+                                                            try {
+                                                                const token = localStorage.getItem("token");
+                                                                await axios.delete(`${import.meta.env.VITE_API_URL}/games/kick/${game.game_id}/${p.user_id}`, { headers: { token }});
+                                                                fetchLobbyData(); // Instantly refresh the roster UI
+                                                            } catch (err) {
+                                                                console.error("Failed to kick player", err);
+                                                            }
+                                                        }
+                                                    }}
+                                                    style={{ background: "#ff7675", color: "white", border: "none", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "11px", fontWeight: "bold" }}
+                                                >
+                                                    Kick
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                     <p style={{ margin: "2px 0 0 0", fontSize: "13px", color: "var(--text-light)", fontStyle: "italic" }}>
                                         "{p.bio || "I am ready to hoop!"}"

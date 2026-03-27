@@ -353,3 +353,35 @@ exports.getHostRating = async (req, res) => {
         res.status(500).send("Server Error");
     }
 };
+
+// 13. KICK PLAYER (HOST/ADMIN ONLY)
+exports.kickPlayer = async (req, res) => {
+    try {
+        const { gameId, playerId } = req.params;
+        // Verify the user kicking is the host or admin
+        const game = await pool.query("SELECT host_id FROM games WHERE game_id = $1", [gameId]);
+        if (String(game.rows[0].host_id) !== String(req.user.id)) {
+            return res.status(403).json("Only the host can kick players.");
+        }
+        await pool.query("DELETE FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, playerId]);
+        res.json("Player kicked successfully.");
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+};
+
+// 14. EDIT GAME 
+exports.editGame = async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { date_time, max_players, skill_level } = req.body;
+        
+        await pool.query(
+            "UPDATE games SET date_time = $1, max_players = $2, skill_level = $3 WHERE game_id = $4 AND host_id = $5 RETURNING *",
+            [date_time, max_players, skill_level, gameId, req.user.id]
+        );
+        res.json("Game updated successfully.");
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+};

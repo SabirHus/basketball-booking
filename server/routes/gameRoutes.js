@@ -11,6 +11,8 @@ router.post("/join/:gameId", authorize, gameController.joinGame);
 router.get("/mygames", authorize, gameController.getMyGames);
 router.delete("/delete/:gameId", authorize, gameController.deleteGame); 
 router.delete("/leave/:gameId", authorize, gameController.leaveGame);
+router.delete("/kick/:gameId/:playerId", authorize, gameController.kickPlayer);
+router.put("/edit/:gameId", authorize, gameController.editGame);
 
 // FINANCIAL INTEGRATION
 router.post("/checkout/:gameId", authorize, gameController.createCheckout);

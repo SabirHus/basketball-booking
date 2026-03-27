@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [filterPrice, setFilterPrice] = useState("All");
   const [filterDate, setFilterDate] = useState("");
   const [filterTime, setFilterTime] = useState("");
+  const [filterMyGames, setFilterMyGames] = useState(false);
 
   const navigate = useNavigate();
 
@@ -45,7 +46,7 @@ const Dashboard = () => {
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/verify`, { headers: { token } });
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, { headers: { token } });
       setUser(res.data);
     } catch (err) {
       localStorage.removeItem("token");
@@ -170,21 +171,24 @@ const Dashboard = () => {
       // Check if the game occurs after the selected time
       if (filterTime) {
         if (filterDate) {
-           // Time filtering only applies to games occurring on the selected date
            if (gameDateStr === filterDate) {
              matchTime = gameTimeStr >= filterTime;
            } else if (gameDateStr > filterDate) {
              matchTime = true;
            }
         } else {
-           // If no date is selected time check is applied across all games
            matchTime = gameTimeStr >= filterTime;
         }
       }
 
-      return matchSkill && matchPrice && matchDate && matchTime;
+      // Check if the game belongs to the current user when "My Games Only" filter is active
+      const currentUserId = user?.user_id || user?.id;
+      const isMyGame = !filterMyGames || String(game.host_id) === String(currentUserId);
+
+      // Only include games that match all active filters
+      return matchSkill && matchPrice && matchDate && matchTime && isMyGame;
     });
-  }, [games, filterSkill, filterPrice, filterDate, filterTime]);
+  }, [games, filterSkill, filterPrice, filterDate, filterTime, filterMyGames, user]); // 🚀 FIX: Added filterMyGames and user to dependencies
 
   return (
     <div className="container">
@@ -240,11 +244,21 @@ const Dashboard = () => {
             className="form-input" 
             style={{width: "auto"}}
         />
+
+        {/* My Games Only */}
+        <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", color: "var(--text-main)", fontWeight: "bold" }}>
+          <input 
+            type="checkbox" 
+            checked={filterMyGames} 
+            onChange={(e) => setFilterMyGames(e.target.checked)} 
+          />
+          My Games Only
+        </label>
         
         {/* Render a reset button if any filters are currently active */}
-        {(filterSkill !== "All" || filterPrice !== "All" || filterDate || filterTime) && (
+        {(filterSkill !== "All" || filterPrice !== "All" || filterDate || filterTime || filterMyGames) && (
             <button 
-              onClick={() => { setFilterSkill("All"); setFilterPrice("All"); setFilterDate(""); setFilterTime(""); }} 
+              onClick={() => { setFilterSkill("All"); setFilterPrice("All"); setFilterDate(""); setFilterTime(""); setFilterMyGames(false); }} 
               style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", textDecoration: "underline" }}
             >
               Clear Filters
@@ -323,13 +337,15 @@ const Dashboard = () => {
                         <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#d63031" }}>
                             🛡️ Host / Admin Controls
                         </p>
-                        <button 
-                            onClick={handleDeleteGame} 
-                            className="btn btn-danger" 
-                            style={{ width: "100%" }}
-                        >
-                            Delete Game 🗑️
-                        </button>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                            <button 
+                                onClick={handleDeleteGame} 
+                                className="btn btn-danger" 
+                                style={{ flex: 1 }}
+                            >
+                                Delete Game 🗑️
+                            </button>
+                        </div>
                     </div>
                 )}
 

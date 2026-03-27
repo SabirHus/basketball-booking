@@ -43,6 +43,12 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
   const mapInstanceRef = useRef(null);
   const markersLayerRef = useRef(null);
 
+  // Create a ref for the onMapClick function
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
+
   // Initialise the map and map controls
   useEffect(() => {
     if (!mapInstanceRef.current && mapContainerRef.current) {
@@ -76,7 +82,7 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
       // Click to Host Games
       map.on('click', (e) => {
         const { lat, lng } = e.latlng;
-        if (onMapClick) onMapClick({ lat, lng });
+        if (onMapClickRef.current) onMapClickRef.current({ lat, lng });
       });
 
       mapInstanceRef.current = map;
@@ -89,7 +95,7 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
         mapInstanceRef.current = null;
       }
     };
-  }, [onMapClick]); 
+  }, []);
 
   // Handle external search commands passed down as props from parent components
   useEffect(() => {
@@ -115,7 +121,7 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
 
         marker.on('click', (e) => {
             L.DomEvent.stopPropagation(e); 
-            if (onMapClick) onMapClick({ game: game });
+            if (onMapClickRef.current) onMapClickRef.current({ game: game });
         });
         
         // Sanitise the court name before injecting it into the HTML tooltip
@@ -125,7 +131,7 @@ const CourtMap = ({ onMapClick, games = [], searchLocation }) => {
         marker.bindTooltip(`<b>${safeCourtName}</b><br>Players: ${game.player_count || 0} / ${game.max_players}${statusText}`); 
       });
     }
-  }, [games, onMapClick]);
+  }, [games]);
 
   // GPS locater on red pin
   const handleLocateMe = () => {
