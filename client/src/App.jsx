@@ -4,9 +4,10 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Success from "./pages/Success";
+import Terms from "./pages/Terms";  
+import Privacy from "./pages/Privacy";  
 
 function App() {
-  // Wrap the path components in a Router to enable client-side routing and navigation
   return (
     <Router>
       <Routes>
@@ -15,6 +16,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/success" element={<Success />} />
+        <Route path="/terms" element={<Terms />} />  
+        <Route path="/privacy" element={<Privacy />} /> 
       </Routes>
     </Router>
   );

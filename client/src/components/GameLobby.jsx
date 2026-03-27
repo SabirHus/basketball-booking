@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 
 const GameLobby = ({ game, currentUser, onJoin }) => {
     // Start up state for the lobby roster and real-time chat
     const [players, setPlayers] = useState([]);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
+    const [agreedToTerms, setAgreedToTerms] = useState(false); 
 
     // Function to fetch current players and messages in the lobby
     const fetchLobbyData = useCallback(async () => {
@@ -139,16 +141,31 @@ const GameLobby = ({ game, currentUser, onJoin }) => {
 
             {/* --- 2. JOIN GAME BUTTON --- */}
             {!hasJoined && (
-                <button 
-                    onClick={onJoin} 
-                    disabled={isFull}
-                    className="btn btn-primary" 
-                    style={{width: "100%", marginTop: "15px", marginBottom: "20px", background: isFull ? "#ccc" : ""}}
-                >
-                    {isFull 
-                        ? "Game Full 🚫" 
-                        : parseFloat(game.price) > 0 ? `Pay £${parseFloat(game.price).toFixed(2)} to Join 💳` : "Join for Free 🏀"}
-                </button>
+                <div style={{ marginTop: "15px", marginBottom: "20px", padding: "15px", background: "var(--bg-color)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px", color: "var(--text-main)", marginBottom: "15px" }}>
+                        <input 
+                            type="checkbox" 
+                            checked={agreedToTerms} 
+                            onChange={(e) => setAgreedToTerms(e.target.checked)} 
+                            style={{ width: "18px", height: "18px" }}
+                        />
+                        <span>
+                            I agree to the <Link to="/terms" target="_blank" style={{ color: "var(--primary)" }}>Terms & Conditions</Link> and <Link to="/privacy" target="_blank" style={{ color: "var(--primary)" }}>Privacy Policy</Link>.
+                        </span>
+                    </label>
+
+                    <button 
+                        onClick={onJoin} 
+                        disabled={isFull || !agreedToTerms}
+                        className="btn btn-primary" 
+                        style={{ width: "100%", background: (isFull || !agreedToTerms) ? "#ccc" : "", cursor: (isFull || !agreedToTerms) ? "not-allowed" : "pointer" }}
+                    >
+                        {isFull 
+                            ? "Game Full 🚫" 
+                            : parseFloat(game.price) > 0 ? `Pay £${parseFloat(game.price).toFixed(2)} to Join 💳` : "Join for Free 🏀"}
+                    </button>
+                    {!agreedToTerms && !isFull && <small style={{ color: "#d63031", display: "block", marginTop: "8px", textAlign: "center" }}>You must agree to the terms to join.</small>}
+                </div>
             )}
 
             {/* --- 3. SECURE LOCKER ROOM CHAT --- */}

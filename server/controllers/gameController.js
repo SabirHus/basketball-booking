@@ -1,7 +1,7 @@
 require("dotenv").config();
 const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const sendConfirmationEmail = require("../utils/sendEmail");
+const { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail } = require("../utils/sendEmail");
 
 // 1. HOST A NEW GAME
 exports.hostGame = async (req, res) => {
@@ -186,49 +186,44 @@ exports.deleteGame = async (req, res) => {
         const { gameId } = req.params;
         const userId = req.user.id; 
 
-        // Retrieve administrative context for authorisation checks
         const userQuery = await pool.query("SELECT is_admin FROM users WHERE user_id = $1", [userId]);
-        const gameQuery = await pool.query("SELECT host_id FROM games WHERE game_id = $1", [gameId]);
+        const gameQuery = await pool.query("SELECT host_id, court_name, date_time FROM games WHERE game_id = $1", [gameId]);
 
-        if (gameQuery.rows.length === 0) {
-            return res.status(404).json("Game not found.");
-        }
+        if (gameQuery.rows.length === 0) return res.status(404).json("Game not found.");
 
         const isAdmin = userQuery.rows[0].is_admin;
-        const hostId = gameQuery.rows[0].host_id;
+        const game = gameQuery.rows[0];
 
-        // Security Check: Only the host or a platform admin can delete a game
-        if (!isAdmin && String(hostId) !== String(userId)) {
+        if (!isAdmin && String(game.host_id) !== String(userId)) {
             return res.status(403).json("Unauthorised. You can only delete your own games.");
         }
 
-        // Identify all users requiring financial reimbursement
-        const paidPlayers = await pool.query(
-            "SELECT stripe_session_id FROM game_players WHERE game_id = $1 AND stripe_session_id IS NOT NULL", 
-            [gameId]
+        // Get all players on the roster to email them and process refunds
+        const allPlayers = await pool.query(
+            `SELECT gp.stripe_session_id, u.email, u.username 
+             FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
+             WHERE gp.game_id = $1 AND gp.user_id != $2`, 
+            [gameId, game.host_id] // Don't email the host about their own deletion
         );
 
-        // Iterate through each paid player and attempt to process a refund via the Stripe API
-        for (let player of paidPlayers.rows) {
-            try {
-                const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
-                
-                if (session.payment_intent) {
-                    await stripe.refunds.create({
-                        payment_intent: session.payment_intent,
-                        reason: 'requested_by_customer' 
-                    });
-                    console.log(`✅ Automated refund processed for session: ${player.stripe_session_id}`);
-                }
-            } catch (stripeErr) {
-                console.error(`❌ Refund failed for session ${player.stripe_session_id}:`, stripeErr.message);
+        for (let player of allPlayers.rows) {
+            let wasPaid = false;
+            // Process refund if they paid
+            if (player.stripe_session_id) {
+                try {
+                    const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
+                    if (session.payment_intent) {
+                        await stripe.refunds.create({ payment_intent: session.payment_intent, reason: 'requested_by_customer' });
+                        wasPaid = true;
+                    }
+                } catch (stripeErr) { console.error("Refund failed:", stripeErr.message); }
             }
+            // Send cancellation email
+            sendCancellationEmail(player.email, player.username, game.court_name, game.date_time, wasPaid);
         }
 
-        // Delete the core game record (Relying on PostgreSQL ON DELETE CASCADE to clear related table data)
         await pool.query("DELETE FROM games WHERE game_id = $1", [gameId]);
-        
-        res.status(200).json("Game cancelled and automated refunds processed successfully.");
+        res.status(200).json("Game cancelled and automated emails/refunds processed successfully.");
     } catch (err) { 
         console.error("Game Deletion Error:", err);
         res.status(500).send("Server Error during deletion sequence."); 
@@ -359,14 +354,43 @@ exports.getHostRating = async (req, res) => {
 exports.kickPlayer = async (req, res) => {
     try {
         const { gameId, playerId } = req.params;
-        // Verify the user kicking is the host or admin
-        const game = await pool.query("SELECT host_id FROM games WHERE game_id = $1", [gameId]);
-        if (String(game.rows[0].host_id) !== String(req.user.id)) {
+        
+        const gameQuery = await pool.query("SELECT host_id, court_name, date_time FROM games WHERE game_id = $1", [gameId]);
+        if (String(gameQuery.rows[0].host_id) !== String(req.user.id)) {
             return res.status(403).json("Only the host can kick players.");
         }
+
+        // Get player details for refund and email
+        const playerDetails = await pool.query(
+            `SELECT gp.stripe_session_id, u.email, u.username 
+             FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
+             WHERE gp.game_id = $1 AND gp.user_id = $2`, 
+            [gameId, playerId]
+        );
+
+        if (playerDetails.rows.length > 0) {
+            const player = playerDetails.rows[0];
+            let wasPaid = false;
+
+            // Issue refund if they paid
+            if (player.stripe_session_id) {
+                try {
+                    const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
+                    if (session.payment_intent) {
+                        await stripe.refunds.create({ payment_intent: session.payment_intent, reason: 'requested_by_customer' });
+                        wasPaid = true;
+                    }
+                } catch (err) { console.error("Refund failed for kicked player:", err.message); }
+            }
+
+            // Send kicked email
+            sendKickedEmail(player.email, player.username, gameQuery.rows[0].court_name, gameQuery.rows[0].date_time, wasPaid);
+        }
+
         await pool.query("DELETE FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, playerId]);
-        res.json("Player kicked successfully.");
+        res.json("Player kicked successfully. Email and refund (if applicable) have been sent.");
     } catch (err) {
+        console.error(err);
         res.status(500).send("Server Error");
     }
 };
