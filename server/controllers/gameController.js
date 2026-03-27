@@ -148,8 +148,9 @@ exports.createCheckout = async (req, res) => {
                 },
                 quantity: 1,
             }],
-            success_url: `${process.env.CLIENT_URL}/#/success?session_id={CHECKOUT_SESSION_ID}&gameId=${gameId}`,
-            cancel_url: `${process.env.CLIENT_URL}/#/dashboard`,
+            // Embed the game ID and Stripe session ID in the success URL for post-payment processing on the frontend
+            success_url: `${process.env.CLIENT_URL}/#/success?gameId=${gameId}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/#/dashboard`, 
         });
 
         res.json({ url: session.url });
@@ -370,18 +371,24 @@ exports.kickPlayer = async (req, res) => {
     }
 };
 
-// 14. EDIT GAME 
+// 14. EDIT GAME
 exports.editGame = async (req, res) => {
     try {
         const { gameId } = req.params;
-        const { date_time, max_players, skill_level } = req.body;
+        const { court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude } = req.body;
         
+        // Only the host can edit the game details
         await pool.query(
-            "UPDATE games SET date_time = $1, max_players = $2, skill_level = $3 WHERE game_id = $4 AND host_id = $5 RETURNING *",
-            [date_time, max_players, skill_level, gameId, req.user.id]
+            `UPDATE games 
+             SET court_name = $1, address = $2, date_time = $3, skill_level = $4, 
+                 max_players = $5, min_players = $6, price = $7, latitude = $8, longitude = $9 
+             WHERE game_id = $10 AND host_id = $11 RETURNING *`,
+            [court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude, gameId, req.user.id]
         );
+        
         res.json("Game updated successfully.");
     } catch (err) {
+        console.error("Edit Game Error:", err);
         res.status(500).send("Server Error");
     }
 };
