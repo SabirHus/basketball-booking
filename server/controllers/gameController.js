@@ -49,12 +49,12 @@ exports.hostGame = async (req, res) => {
 // 2. FETCH ALL ACTIVE GAMES
 exports.getAllGames = async (req, res) => {
     try {
-        // Execute a relational query to retrieve games host details and a computed player count
         const allGames = await pool.query(`
             SELECT games.*, users.username, 
             (SELECT COUNT(*) FROM game_players WHERE game_players.game_id = games.game_id) as player_count 
             FROM games 
             JOIN users ON games.host_id = users.user_id
+            WHERE games.date_time >= NOW()
         `);
         res.json(allGames.rows);
     } catch (err) { 
