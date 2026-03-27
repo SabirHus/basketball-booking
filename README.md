@@ -1,6 +1,6 @@
 # CourtLink
 Live URL: https://thecourtlink.com/
-<img width="1683" height="887" alt="image" src="https://github.com/user-attachments/assets/e8dde25f-a1a9-458e-ab40-fb2eb1532070" />
+<img width="1645" height="1122" alt="image" src="https://github.com/user-attachments/assets/b29946a4-8047-4cef-bcad-3f0cc4237e80" />
 
 **CourtLink** is a web-based application using a full body, location-based application to ease the process of organising pickup basketball games. This is designed to complete the balancing act between digital coordination and physical recreation by enabling the users to safely host and find local games and also join them.
 
