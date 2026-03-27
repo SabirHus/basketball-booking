@@ -1,7 +1,7 @@
 require("dotenv").config();
 const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdateEmail } = require("../utils/sendEmail");
+const { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdateEmail, sendGameOnEmail } = require("../utils/sendEmail");
 
 // 1. HOST A NEW GAME
 exports.hostGame = async (req, res) => {
@@ -68,7 +68,6 @@ exports.joinGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         
-        // Verify game existence and retrieve capacity metrics
         const gameRes = await pool.query(`
             SELECT max_players, min_players, court_name, address, date_time, price, 
             (SELECT COUNT(*) FROM game_players WHERE game_id = $1) as player_count 
@@ -76,31 +75,42 @@ exports.joinGame = async (req, res) => {
         `, [gameId]);
         
         if (gameRes.rows.length === 0) return res.status(404).json("Game not found.");
-        
         const game = gameRes.rows[0]; 
 
-        // Enforce maximum capacity constraints
         if (parseInt(game.player_count, 10) >= parseInt(game.max_players, 10)) {
             return res.status(400).json("This game has reached maximum capacity.");
         }
 
-        // Prevent duplicate enrolments
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
         if (check.rows.length > 0) return res.status(400).json("You have already joined this game.");
 
         const { sessionId } = req.body;
 
-        // Append user to the roster recording the Stripe session ID if applicable
         await pool.query(
             "INSERT INTO game_players (game_id, user_id, stripe_session_id) VALUES ($1, $2, $3)", 
             [gameId, req.user.id, sessionId || null]
         );
 
-        // Fetch user details to dispatch a confirmation email
+        // Fetch user details for confirmation
         const userRes = await pool.query("SELECT username, email FROM users WHERE user_id = $1", [req.user.id]);
         const user = userRes.rows[0];
 
-        sendConfirmationEmail(user.email, user.username, game.court_name, game.address, game.date_time, game.price, sessionId);
+        // Send confirmation email with the latest player count to the new joiner
+        const newPlayerCount = parseInt(game.player_count, 10) + 1;
+        sendConfirmationEmail(user.email, user.username, game.court_name, game.address, game.date_time, game.price, sessionId, newPlayerCount, game.min_players, game.max_players);
+
+        // If this specific user joining hits the minimum threshold exactly, email everyone on the roster!
+        if (newPlayerCount === parseInt(game.min_players, 10)) {
+            const roster = await pool.query(`
+                SELECT u.email, u.username 
+                FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
+                WHERE gp.game_id = $1
+            `, [gameId]);
+
+            for (let player of roster.rows) {
+                sendGameOnEmail(player.email, player.username, game.court_name, game.date_time);
+            }
+        }
 
         res.json("Joined successfully!");
     } catch (err) { 

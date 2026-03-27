@@ -3,14 +3,14 @@ const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // 1. CONFIRMATION EMAIL
-const sendConfirmationEmail = async (userEmail, userName, courtName, address, dateTime, price = 0, reference) => {
+const sendConfirmationEmail = async (userEmail, userName, courtName, address, dateTime, price = 0, reference, currentPlayers, minPlayers, maxPlayers) => {
     try {
         const gameDate = new Date(dateTime);
         const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const formattedTime = gameDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         const displayPrice = parseFloat(price) > 0 ? `£${parseFloat(price).toFixed(2)}` : "FREE";
-        const displayReference = reference ? reference : "Free Game";
         const displayAddress = address ? address : "Address not provided";
+        const displayReference = reference ? reference : "Free Game";
 
         await resend.emails.send({
             from: process.env.MAIL_FROM, 
@@ -29,6 +29,8 @@ const sendConfirmationEmail = async (userEmail, userName, courtName, address, da
                                 <h3>📍 ${courtName}</h3>
                                 <p><strong>Address:</strong> ${displayAddress}</p>
                                 <p><strong>Date:</strong> ${formattedDate} at ${formattedTime}</p>
+                                <p><strong>Roster Status:</strong> ${currentPlayers} / ${maxPlayers} Players Joined <br>
+                                <small style="color: #666;">(Game needs a minimum of ${minPlayers} to go ahead)</small></p>
                             </div>
                             <p><strong>Total Paid:</strong> ${displayPrice} (Ref: ${displayReference})</p>
                         </div>
@@ -130,4 +132,32 @@ const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newA
     } catch (error) { console.error("Update email failed:", error); }
 };
 
-module.exports = { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdateEmail };
+// 5. GAME IS ON EMAIL (Target Hit)
+const sendGameOnEmail = async (userEmail, userName, courtName, dateTime) => {
+    try {
+        const gameDate = new Date(dateTime);
+        const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+        await resend.emails.send({
+            from: process.env.MAIL_FROM, 
+            to: userEmail,
+            subject: "✅ CourtLink: Game is ON!",
+            html: `
+                <div style="font-family: sans-serif; background-color: #f4f6f8; padding: 20px 0;">
+                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+                        <div style="background-color: #27ae60; padding: 20px; text-align: center; color: white;">
+                            <h2>Game is Officially ON! ✅</h2>
+                        </div>
+                        <div style="padding: 30px;">
+                            <p>Hey <strong>${userName}</strong>,</p>
+                            <p>Great news! The upcoming game at <strong>${courtName}</strong> on <strong>${formattedDate}</strong> has just hit its minimum player requirement.</p>
+                            <p>The game is officially going ahead. See you on the court!</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        });
+    } catch (error) { console.error("Game ON email failed:", error); }
+};
+
+module.exports = { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdateEmail, sendGameOnEmail };
