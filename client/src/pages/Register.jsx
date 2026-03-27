@@ -119,7 +119,7 @@ const Register = () => {
             </button>
           </form>
 
-          <div style={{ marginTop: "20px", fontSize: "0.9em" }}>
+          <div style={{ marginTop: "25px", fontSize: "0.9em" }}>
           <DarkModeToggle />
             Already have an account? <Link to="/" style={{ color: "#ff5722", fontWeight: "bold", textDecoration: "none" }}>Log In</Link>
           </div>

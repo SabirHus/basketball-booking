@@ -85,7 +85,7 @@ const Login = () => {
             </button>
           </form>
 
-          <div style={{ marginTop: "20px", fontSize: "0.9em" }}>
+          <div style={{ marginTop: "25px", fontSize: "0.9em" }}>
             <DarkModeToggle />
             New to CourtLink? <Link to="/register" style={{ color: "#ff5722", fontWeight: "bold", textDecoration: "none" }}>Create Account</Link>
           </div>

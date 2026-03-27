@@ -1,7 +1,7 @@
 import DarkModeToggle from "../components/DarkModeToggle";
 const Terms = () => {
     return (
-        <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto", lineHeight: "1.6", color: "var(--text-main)" }}>
+        <div style={{ padding: "45px", maxWidth: "800px", margin: "0 auto", lineHeight: "1.6", color: "var(--text-main)" }}>
             <DarkModeToggle />
             <h1 style={{ color: "var(--primary)" }}>Terms and Conditions</h1>
             <p>Welcome to CourtLink. By using our platform, you agree to the following terms:</p>

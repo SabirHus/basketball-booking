@@ -163,13 +163,14 @@ exports.createCheckout = async (req, res) => {
 // 5. FETCH USER SPECIFIC GAMES
 exports.getMyGames = async (req, res) => {
     try {
-        // Retrieve games where the user is the designated host
         const hosted = await pool.query("SELECT * FROM games WHERE host_id = $1 ORDER BY date_time ASC", [req.user.id]);
         
-        // Retrieve games where the user exists in the roster via a SQL JOIN
+        // Added a LEFT JOIN to fetch the user's existing rating for each past game they joined
         const joined = await pool.query(`
-            SELECT games.* FROM games 
+            SELECT games.*, hr.rating AS my_rating
+            FROM games 
             JOIN game_players ON games.game_id = game_players.game_id 
+            LEFT JOIN host_ratings hr ON games.game_id = hr.game_id AND hr.rater_id = $1
             WHERE game_players.user_id = $1 ORDER BY games.date_time ASC
         `, [req.user.id]);
         
@@ -308,24 +309,27 @@ exports.rateHost = async (req, res) => {
         const gameRes = await pool.query("SELECT date_time FROM games WHERE game_id = $1", [gameId]);
         if (gameRes.rows.length === 0) return res.status(404).json("Game not found.");
         
-        // Prevent users from rating hosts before the scheduled event has concluded
         const gameDate = new Date(gameRes.rows[0].date_time);
         if (gameDate > new Date()) {
             return res.status(400).json("Ratings cannot be submitted until the game has concluded.");
         }
 
-        // Prevent review bombing by enforcing a single rating per user per game
+        // Check if the rater was a participant in the game to prevent fraudulent ratings
         const checkRating = await pool.query("SELECT * FROM host_ratings WHERE game_id = $1 AND rater_id = $2", [gameId, raterId]);
+        
         if (checkRating.rows.length > 0) {
-            return res.status(400).json("You have already submitted a rating for this host.");
+            await pool.query(
+                "UPDATE host_ratings SET rating = $1 WHERE game_id = $2 AND rater_id = $3",
+                [rating, gameId, raterId]
+            );
+            res.json("Rating updated successfully.");
+        } else {
+            await pool.query(
+                "INSERT INTO host_ratings (game_id, rater_id, host_id, rating) VALUES ($1, $2, $3, $4)",
+                [gameId, raterId, hostId, rating]
+            );
+            res.json("Rating recorded successfully.");
         }
-
-        await pool.query(
-            "INSERT INTO host_ratings (game_id, rater_id, host_id, rating) VALUES ($1, $2, $3, $4)",
-            [gameId, raterId, hostId, rating]
-        );
-
-        res.json("Rating recorded successfully.");
     } catch (err) {
         console.error("Rate Host Error:", err);
         res.status(500).send("Server Error");

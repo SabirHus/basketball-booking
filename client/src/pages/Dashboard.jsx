@@ -6,8 +6,8 @@ import HostGameModal from "../components/HostGameModal";
 import GameLobby from "../components/GameLobby"; 
 import { motion, AnimatePresence } from "framer-motion";
 import SkeletonCard from "../components/SkeletonCard";
-// 🚀 FEATURE: Imported the new EditGameModal component
 import EditGameModal from "../components/EditGameModal";
+import DarkModeToggle from "../components/DarkModeToggle";
 
 const Dashboard = () => {
   // Global application state
@@ -19,12 +19,8 @@ const Dashboard = () => {
 
   // Modal and map interaction state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // 🚀 FEATURE: Added state to control the Edit modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
-
-  // Read theme preference from local storage for persistence
-  const [darkMode, setDarkMode] = useState(localStorage.getItem("theme") === "dark");
 
   // Filter UI state
   const [filterSkill, setFilterSkill] = useState("All");
@@ -35,28 +31,15 @@ const Dashboard = () => {
 
   const navigate = useNavigate();
 
-  // Apply dark mode class to the body tag
-  useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add("dark-mode");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.body.classList.remove("dark-mode");
-      localStorage.setItem("theme", "light");
-    }
-  }, [darkMode]);
-
   // Authenticate the user token against the backend before rendering dashboard features
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("token");
-      // 🚀 FIX: Added a quick check to prevent unnecessary requests if no token exists
       if (!token) return navigate("/");
       
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, { headers: { token } });
       setUser(res.data);
     } catch (err) {
-      // Only log out the user if we receive an explicit unauthorised response, otherwise keep them logged in and show an error message
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           localStorage.removeItem("token");
           navigate("/");
@@ -73,7 +56,6 @@ const Dashboard = () => {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/games/all`);
       setGames(res.data);
       
-      // If a user currently has a game selected we need to refresh its specific data too
       if (selectedGame) {
         const updated = res.data.find(g => g.game_id === selectedGame.game_id);
         if (updated) setSelectedGame(updated);
@@ -81,7 +63,6 @@ const Dashboard = () => {
     } catch (err) { 
       console.error("Failed to fetch games roster:", err); 
     } finally {
-      // Delay to allow smooth skeleton loading animations
       setTimeout(() => setIsLoading(false), 500); 
     }
   };
@@ -122,11 +103,9 @@ const Dashboard = () => {
         const price = parseFloat(selectedGame.price);
         
         if (price > 0) {
-            // Stripe checkout
             const res = await axios.post(`${import.meta.env.VITE_API_URL}/games/checkout/${selectedGame.game_id}`, {}, { headers: { token } });
             window.location.href = res.data.url;
         } else {
-            // Add user for free games
             await axios.post(`${import.meta.env.VITE_API_URL}/games/join/${selectedGame.game_id}`, {}, { headers: { token } });
             alert("✅ Joined successfully for free!");
             fetchGames();
@@ -162,7 +141,6 @@ const Dashboard = () => {
       const isFree = parseFloat(game.price) === 0;
       const matchPrice = filterPrice === "All" || (filterPrice === "Free" && isFree) || (filterPrice === "Paid" && !isFree);
       
-      // Extract local date segments safely to avoid cross-browser timezone bugs
       const gameDateObj = new Date(game.date_time);
       const year = gameDateObj.getFullYear();
       const month = String(gameDateObj.getMonth() + 1).padStart(2, '0');
@@ -180,7 +158,6 @@ const Dashboard = () => {
         matchDate = gameDateStr >= filterDate;
       }
 
-      // Check if the game occurs after the selected time
       if (filterTime) {
         if (filterDate) {
            if (gameDateStr === filterDate) {
@@ -207,13 +184,8 @@ const Dashboard = () => {
         <h1 style={{ color: "var(--primary)", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>🏀 CourtLink</h1>
         
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-          <button 
-            className="dark-mode-toggle" 
-            onClick={() => setDarkMode(!darkMode)}
-            title="Toggle Dark/Light Mode"
-          >
-            {darkMode ? "☀️" : "🌙"}
-          </button>
+          {/* Dark Mode Toggle */}
+          <DarkModeToggle customStyle={{ position: "relative", top: "auto", right: "auto", border: "none", background: "transparent", fontSize: "1.5rem", cursor: "pointer", padding: "0" }} />
 
           <span style={{ fontWeight: "600", cursor: "pointer", textDecoration: "underline", color: "var(--text-light)" }} onClick={() => navigate("/profile")}>
             Hello, {user ? user.username : "Loading..."}
@@ -264,7 +236,6 @@ const Dashboard = () => {
           My Games Only
         </label>
         
-        {/* Render a reset button if any filters are currently active */}
         {(filterSkill !== "All" || filterPrice !== "All" || filterDate || filterTime || filterMyGames) && (
             <button 
               onClick={() => { setFilterSkill("All"); setFilterPrice("All"); setFilterDate(""); setFilterTime(""); setFilterMyGames(false); }} 
@@ -285,7 +256,6 @@ const Dashboard = () => {
                  setSelectedGame(data.game); 
                  setClickedCoords(null); 
                } else { 
-                 // Clicking empty map space passes coordinates up to trigger the hosting modal
                  setClickedCoords(data); 
                  setSelectedGame(null); 
                  setIsModalOpen(true); 
@@ -340,14 +310,12 @@ const Dashboard = () => {
                 <p><strong>Level:</strong> {selectedGame.skill_level}</p>
                 <p><strong>Time:</strong> {new Date(selectedGame.date_time).toLocaleString()}</p>
 
-                {/* Secure administrative controls for the game owner and platform admins */}
                 {user && (user.is_admin || String(user.id || user.user_id) === String(selectedGame.host_id)) && (
                     <div style={{ marginTop: "10px", marginBottom: "20px", padding: "15px", background: "var(--bg-color)", borderRadius: "var(--radius)", border: "1px dashed #ff7675" }}>
                         <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#d63031" }}>
                             🛡️ Host / Admin Controls
                         </p>
                         <div style={{ display: "flex", gap: "10px" }}>
-                            {/* 🚀 FEATURE: Added the Edit Game button to trigger the modal */}
                             <button 
                                 onClick={() => setIsEditModalOpen(true)} 
                                 className="btn btn-primary" 
@@ -366,7 +334,6 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* Conditional UI rendering indicating the game has reached capacity */}
                 {selectedGame.min_players && parseInt(selectedGame.player_count, 10) >= parseInt(selectedGame.min_players, 10) && (
                     <div style={{ 
                         background: "#d4edda", 
@@ -413,7 +380,6 @@ const Dashboard = () => {
         </aside>
       </div>
       
-      {/* Conditionally render the hosting modal over the viewport */}
       {isModalOpen && clickedCoords && (
         <HostGameModal 
           coords={clickedCoords} 
@@ -425,14 +391,13 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Conditionally render the Edit Game modal over the viewport */}
       {isEditModalOpen && selectedGame && (
         <EditGameModal 
           game={selectedGame}
           onClose={() => setIsEditModalOpen(false)}
           onGameUpdated={() => {
-            fetchGames(); // Refresh the map and data
-            setIsEditModalOpen(false); // Close the modal
+            fetchGames(); 
+            setIsEditModalOpen(false); 
           }}
         />
       )}

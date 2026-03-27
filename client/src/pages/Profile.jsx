@@ -8,6 +8,8 @@ const DEFAULT_PIC = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profil
 
 // Component to handle post-game host ratings
 const RateHost = ({ game }) => {
+  // Local state to manage the user's current rating for the host and hover state for star rating UI
+  const [savedRating, setSavedRating] = useState(game.my_rating || 0);
   const [hover, setHover] = useState(0);
 
   const submitRating = async (score) => {
@@ -17,15 +19,16 @@ const RateHost = ({ game }) => {
         { rating: score, hostId: game.host_id },
         { headers: { token: localStorage.getItem("token") } }
       );
-      alert("✅ Thanks for rating the host!");
+      // Update the saved rating state to reflect the new rating immediately in the UI
+      setSavedRating(score);
+      alert("✅ Rating saved successfully!");
     } catch (err) {
       alert(err.response?.data || "Error rating host");
     }
   };
 
   return (
-    <div style={{ marginTop: "10px", background: "var(--bg-color)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-      <DarkModeToggle />
+    <div style={{ marginTop: "15px", background: "var(--bg-color)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
       <small style={{ fontWeight: "bold", color: "var(--text-light)", display: "block", marginBottom: "5px" }}>
         Game Finished! Rate the Host:
       </small>
@@ -38,7 +41,8 @@ const RateHost = ({ game }) => {
               onClick={() => submitRating(starValue)}
               onMouseEnter={() => setHover(starValue)}
               onMouseLeave={() => setHover(0)}
-              style={{ color: starValue <= hover ? "#f1c40f" : "#ccc", transition: "color 0.2s" }}
+              // Stars change color on hover and stay filled based on the saved rating from the database
+              style={{ color: starValue <= (hover || savedRating) ? "#f1c40f" : "#ccc", transition: "color 0.2s" }}
             >
               ★
             </span>

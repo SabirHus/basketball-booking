@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import DarkModeToggle from "../components/DarkModeToggle";
 import axios from "axios";
 
 const Success = () => {
@@ -36,7 +35,6 @@ const Success = () => {
 
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f6fa" }}>
-      <DarkModeToggle />
       <div className="card" style={{ textAlign: "center", padding: "40px", maxWidth: "500px", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}>
         
         {/* Visual success indicator */}
