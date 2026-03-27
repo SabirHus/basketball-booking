@@ -6,6 +6,8 @@ import HostGameModal from "../components/HostGameModal";
 import GameLobby from "../components/GameLobby"; 
 import { motion, AnimatePresence } from "framer-motion";
 import SkeletonCard from "../components/SkeletonCard";
+// 🚀 FEATURE: Imported the new EditGameModal component
+import EditGameModal from "../components/EditGameModal";
 
 const Dashboard = () => {
   // Global application state
@@ -17,6 +19,8 @@ const Dashboard = () => {
 
   // Modal and map interaction state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // 🚀 FEATURE: Added state to control the Edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
 
   // Read theme preference from local storage for persistence
@@ -46,11 +50,19 @@ const Dashboard = () => {
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("token");
+      // 🚀 FIX: Added a quick check to prevent unnecessary requests if no token exists
+      if (!token) return navigate("/");
+      
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, { headers: { token } });
       setUser(res.data);
     } catch (err) {
-      localStorage.removeItem("token");
-      navigate("/");
+      // Only log out the user if we receive an explicit unauthorised response, otherwise keep them logged in and show an error message
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          localStorage.removeItem("token");
+          navigate("/");
+      } else {
+          console.error("Network or server error while fetching user. Keeping session alive.", err);
+      }
     }
   };
 
@@ -181,14 +193,12 @@ const Dashboard = () => {
         }
       }
 
-      // Check if the game belongs to the current user when "My Games Only" filter is active
       const currentUserId = user?.user_id || user?.id;
       const isMyGame = !filterMyGames || String(game.host_id) === String(currentUserId);
 
-      // Only include games that match all active filters
       return matchSkill && matchPrice && matchDate && matchTime && isMyGame;
     });
-  }, [games, filterSkill, filterPrice, filterDate, filterTime, filterMyGames, user]); // 🚀 FIX: Added filterMyGames and user to dependencies
+  }, [games, filterSkill, filterPrice, filterDate, filterTime, filterMyGames, user]);
 
   return (
     <div className="container">
@@ -245,7 +255,6 @@ const Dashboard = () => {
             style={{width: "auto"}}
         />
 
-        {/* My Games Only */}
         <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", color: "var(--text-main)", fontWeight: "bold" }}>
           <input 
             type="checkbox" 
@@ -338,6 +347,14 @@ const Dashboard = () => {
                             🛡️ Host / Admin Controls
                         </p>
                         <div style={{ display: "flex", gap: "10px" }}>
+                            {/* 🚀 FEATURE: Added the Edit Game button to trigger the modal */}
+                            <button 
+                                onClick={() => setIsEditModalOpen(true)} 
+                                className="btn btn-primary" 
+                                style={{ flex: 1 }}
+                            >
+                                Edit Game ✏️
+                            </button>
                             <button 
                                 onClick={handleDeleteGame} 
                                 className="btn btn-danger" 
@@ -405,6 +422,18 @@ const Dashboard = () => {
             fetchGames();
             setIsModalOpen(false);
           }} 
+        />
+      )}
+
+      {/* Conditionally render the Edit Game modal over the viewport */}
+      {isEditModalOpen && selectedGame && (
+        <EditGameModal 
+          game={selectedGame}
+          onClose={() => setIsEditModalOpen(false)}
+          onGameUpdated={() => {
+            fetchGames(); // Refresh the map and data
+            setIsEditModalOpen(false); // Close the modal
+          }}
         />
       )}
     </div>

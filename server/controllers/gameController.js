@@ -148,8 +148,8 @@ exports.createCheckout = async (req, res) => {
                 },
                 quantity: 1,
             }],
-            success_url: `${process.env.CLIENT_URL}/success?gameId=${gameId}&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.CLIENT_URL}/dashboard`, 
+            success_url: `${process.env.CLIENT_URL}/#/success?session_id={CHECKOUT_SESSION_ID}&gameId=${gameId}`,
+            cancel_url: `${process.env.CLIENT_URL}/#/dashboard`,
         });
 
         res.json({ url: session.url });
