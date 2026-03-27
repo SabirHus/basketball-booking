@@ -1,6 +1,8 @@
+import DarkModeToggle from "../components/DarkModeToggle";
 const Privacy = () => {
     return (
         <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto", lineHeight: "1.6", color: "var(--text-main)" }}>
+            <DarkModeToggle />
             <h1 style={{ color: "var(--primary)" }}>Privacy Policy</h1>
             <p>Your privacy is important to us. This policy outlines how we handle your data.</p>
             <h3>1. Data Collection</h3>

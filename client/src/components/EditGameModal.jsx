@@ -53,12 +53,12 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
   const handleSelectAddress = (result) => {
       setFormData({
           ...formData,
-          address: result.label,     
-          latitude: result.y,         
-          longitude: result.x         
+          address: result.label,
+          latitude: result.y,
+          longitude: result.x
       });
-      setAddressQuery(result.label);  
-      setAddressResults([]);        
+      setAddressQuery(result.label);
+      setAddressResults([]);
   };
 
   const handleSubmit = async (e) => {
@@ -117,8 +117,8 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
             </label>
             <input 
                 type="text" 
-                className="form-input" 
-                value={addressQuery} 
+                className="form-input"
+                value={addressQuery}
                 onChange={(e) => setAddressQuery(e.target.value)} 
                 placeholder="Start typing an address..."
                 required 

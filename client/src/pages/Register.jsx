@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import DarkModeToggle from "../components/DarkModeToggle";
 import { useNavigate, Link } from "react-router-dom";
 
 const Register = () => {
@@ -119,6 +120,7 @@ const Register = () => {
           </form>
 
           <div style={{ marginTop: "20px", fontSize: "0.9em" }}>
+          <DarkModeToggle />
             Already have an account? <Link to="/" style={{ color: "#ff5722", fontWeight: "bold", textDecoration: "none" }}>Log In</Link>
           </div>
         </div>

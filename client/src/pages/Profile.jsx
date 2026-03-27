@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import DarkModeToggle from "../components/DarkModeToggle";
 import { useNavigate } from "react-router-dom";
 
 // Default avatar image for users without a custom profile picture
@@ -24,6 +25,7 @@ const RateHost = ({ game }) => {
 
   return (
     <div style={{ marginTop: "10px", background: "var(--bg-color)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+      <DarkModeToggle />
       <small style={{ fontWeight: "bold", color: "var(--text-light)", display: "block", marginBottom: "5px" }}>
         Game Finished! Rate the Host:
       </small>
