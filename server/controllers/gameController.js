@@ -1,7 +1,7 @@
 require("dotenv").config();
 const pool = require("../db");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail } = require("../utils/sendEmail");
+const { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdateEmail } = require("../utils/sendEmail");
 
 // 1. HOST A NEW GAME
 exports.hostGame = async (req, res) => {
@@ -405,16 +405,34 @@ exports.editGame = async (req, res) => {
         const { gameId } = req.params;
         const { court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude } = req.body;
         
-        // Only the host can edit the game details
-        await pool.query(
+        // Update the game details
+        const updatedGame = await pool.query(
             `UPDATE games 
              SET court_name = $1, address = $2, date_time = $3, skill_level = $4, 
                  max_players = $5, min_players = $6, price = $7, latitude = $8, longitude = $9 
              WHERE game_id = $10 AND host_id = $11 RETURNING *`,
             [court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude, gameId, req.user.id]
         );
+
+        // If no rows were updated, either the game doesn't exist or the user isn't the host
+        if (updatedGame.rows.length === 0) {
+             return res.status(403).json("Unauthorised. Only the host can edit this game.");
+        }
+
+        // Fetch all players currently on the roster (excluding the host)
+        const allPlayers = await pool.query(
+            `SELECT u.email, u.username 
+             FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
+             WHERE gp.game_id = $1 AND gp.user_id != $2`, 
+            [gameId, req.user.id] 
+        );
+
+        // Fire off the update emails to everyone on the roster
+        for (let player of allPlayers.rows) {
+            sendUpdateEmail(player.email, player.username, court_name, date_time, address);
+        }
         
-        res.json("Game updated successfully.");
+        res.json("Game updated successfully. Players have been notified.");
     } catch (err) {
         console.error("Edit Game Error:", err);
         res.status(500).send("Server Error");

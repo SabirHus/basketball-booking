@@ -95,4 +95,39 @@ const sendKickedEmail = async (userEmail, userName, courtName, dateTime, wasPaid
     } catch (error) { console.error("Kicked email failed:", error); }
 };
 
-module.exports = { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail };
+// 4. UPDATE EMAIL (Game Edited)
+const sendUpdateEmail = async (userEmail, userName, courtName, newDateTime, newAddress) => {
+    try {
+        const gameDate = new Date(newDateTime);
+        const formattedDate = gameDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const formattedTime = gameDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const displayAddress = newAddress ? newAddress : "Address not provided";
+
+        await resend.emails.send({
+            from: process.env.MAIL_FROM, 
+            to: userEmail,
+            subject: "🔄 CourtLink: Game Update",
+            html: `
+                <div style="font-family: sans-serif; background-color: #f4f6f8; padding: 20px 0;">
+                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+                        <div style="background-color: #0984e3; padding: 20px; text-align: center; color: white;">
+                            <h2>Game Details Updated</h2>
+                        </div>
+                        <div style="padding: 30px;">
+                            <p>Hey <strong>${userName}</strong>,</p>
+                            <p>The host has updated the details for an upcoming game you are joined to. Here is the latest information:</p>
+                            <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #0984e3; margin: 20px 0;">
+                                <h3>📍 ${courtName}</h3>
+                                <p><strong>Address:</strong> ${displayAddress}</p>
+                                <p><strong>Date/Time:</strong> ${formattedDate} at ${formattedTime}</p>
+                            </div>
+                            <p>See you on the court!</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        });
+    } catch (error) { console.error("Update email failed:", error); }
+};
+
+module.exports = { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdateEmail };
