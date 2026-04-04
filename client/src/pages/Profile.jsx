@@ -3,12 +3,10 @@ import axios from "axios";
 import DarkModeToggle from "../components/DarkModeToggle";
 import { useNavigate } from "react-router-dom";
 
-// Default avatar image for users without a custom profile picture
 const DEFAULT_PIC = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
 
-// Component to handle post-game host ratings
+// Post-game host rating widget
 const RateHost = ({ game }) => {
-  // Local state to manage the user's current rating for the host and hover state for star rating UI
   const [savedRating, setSavedRating] = useState(game.my_rating || 0);
   const [hover, setHover] = useState(0);
 
@@ -19,7 +17,6 @@ const RateHost = ({ game }) => {
         { rating: score, hostId: game.host_id },
         { headers: { token: localStorage.getItem("token") } }
       );
-      // Update the saved rating state to reflect the new rating immediately in the UI
       setSavedRating(score);
       alert("✅ Rating saved successfully!");
     } catch (err) {
@@ -29,7 +26,6 @@ const RateHost = ({ game }) => {
 
   return (
     <div style={{ marginTop: "15px", background: "var(--bg-color)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-      <DarkModeToggle />
       <small style={{ fontWeight: "bold", color: "var(--text-light)", display: "block", marginBottom: "5px" }}>
         Game Finished! Rate the Host:
       </small>
@@ -42,7 +38,6 @@ const RateHost = ({ game }) => {
               onClick={() => submitRating(starValue)}
               onMouseEnter={() => setHover(starValue)}
               onMouseLeave={() => setHover(0)}
-              // Stars change color on hover and stay filled based on the saved rating from the database
               style={{ color: starValue <= (hover || savedRating) ? "#f1c40f" : "#ccc", transition: "color 0.2s" }}
             >
               ★
@@ -55,16 +50,11 @@ const RateHost = ({ game }) => {
 };
 
 const Profile = () => {
-  // Roster state for games the user interacts with
   const [hostedGames, setHostedGames] = useState([]);
   const [joinedGames, setJoinedGames] = useState([]);
-  
-  // User profile state
   const [user, setUser] = useState({ username: "Loading..." });
   const [bio, setBio] = useState("");
   const [position, setPosition] = useState("");
-  
-  // Image upload and UI toggle state
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -73,25 +63,20 @@ const Profile = () => {
 
   const navigate = useNavigate();
 
-  // Retrieve user data and associated games from the database
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return navigate("/");
 
-      // Execute both profile and games network requests concurrently
       const [userRes, gameRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, { headers: { token } }),
         axios.get(`${import.meta.env.VITE_API_URL}/games/mygames`, { headers: { token } })
       ]);
 
-      // Hydrate component state with user profile data
       setUser(userRes.data);
       setBio(userRes.data.bio || "");
       setPosition(userRes.data.position || "Not Specified");
       setPreviewUrl(userRes.data.profile_pic || DEFAULT_PIC);
-
-      // Hydrate component state with game roster data
       setHostedGames(gameRes.data.hosted);
       setJoinedGames(gameRes.data.joined);
 
@@ -101,36 +86,29 @@ const Profile = () => {
     }
   };
 
-  // Initial load effect
   useEffect(() => {
     document.title = "My Profile - CourtLink";
     fetchData();
   }, [navigate]);
 
-  // Handle local file selection and generate a preview image
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      
-      // Revoke previous preview URL to prevent memory leaks
       if (previewUrl && previewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(previewUrl);
       }
-      
       setPreviewUrl(URL.createObjectURL(file)); 
       setRemovePic(false); 
     }
   };
 
-  // Flag the existing picture for deletion upon saving
   const handleRemovePicture = () => {
     setRemovePic(true);
     setSelectedFile(null);
     setPreviewUrl(DEFAULT_PIC);
   };
 
-  // Package the profile updates into a FormData object for backend processing
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -168,7 +146,6 @@ const Profile = () => {
     }
   };
 
-  // Securely delete a game hosted by the current user
   const handleDelete = async (gameId) => {
     if (!window.confirm("Are you sure you want to cancel this game?")) return;
     try {
@@ -181,7 +158,6 @@ const Profile = () => {
     }
   };
 
-  // Allow the user to remove themselves from a joined game roster
   const handleLeave = async (gameId) => {
     if (!window.confirm("Are you sure you want to leave this game?")) return;
     try {
@@ -194,7 +170,6 @@ const Profile = () => {
     }
   };
 
-  // Utility to determine if a game requires post-match UI actions like rating the host
   const isPastGame = (dateString) => new Date(dateString) < new Date();
 
   return (
@@ -287,11 +262,14 @@ const Profile = () => {
               </div>
             </form>
         )}
+
+        <div style={{ marginTop: "15px" }}>
+          <DarkModeToggle />
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
         
-        {/* Games Hosted Section */}
         <div className="card">
             <h3 style={{ color: "var(--text-main)", borderBottom: "2px solid var(--primary)", paddingBottom: "10px" }}>📢 Hosted by Me</h3>
             {hostedGames?.length === 0 ? <p style={{ color: "var(--text-light)" }}>You haven't hosted any games.</p> : (
@@ -315,7 +293,6 @@ const Profile = () => {
             )}
         </div>
 
-        {/* Games Joined Section */}
         <div className="card">
             <h3 style={{ color: "#0984e3", borderBottom: "2px solid #0984e3", paddingBottom: "10px" }}>🏀 Games I Joined</h3>
             {joinedGames?.length === 0 ? <p style={{ color: "var(--text-light)" }}>You haven't joined any games.</p> : (

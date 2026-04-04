@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { OpenStreetMapProvider } from 'leaflet-geosearch';
 
+// Provider created once outside the component rather than on every render
+const provider = new OpenStreetMapProvider();
+
 const EditGameModal = ({ game, onClose, onGameUpdated }) => {
-  // Initialise form data with existing game details, converting date to the correct format for the datetime-local input
   const [formData, setFormData] = useState({
     courtName: game.court_name,
     address: game.address,
@@ -16,23 +18,16 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
     price: game.price
   });
 
-  // State for the address autocomplete feature
   const [addressQuery, setAddressQuery] = useState(game.address);
   const [addressResults, setAddressResults] = useState([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Initialise the map provider
-  const provider = new OpenStreetMapProvider();
-
-  // Effect to search for addresses as the user types, with a debounce of 1 second
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
-        // Only search if the query has actually changed from the saved address
         if (addressQuery && addressQuery !== formData.address) {
             setIsSearchingAddress(true);
             try {
-                // Fetch real addresses matching their input
                 const results = await provider.search({ query: addressQuery });
                 setAddressResults(results);
             } catch (err) {
@@ -41,15 +36,13 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
                 setIsSearchingAddress(false);
             }
         } else {
-            setAddressResults([]); // Clear dropdown if input is empty or matches existing
+            setAddressResults([]);
         }
     }, 1000);
 
-    // Cleanup the timeout if they keep typing
     return () => clearTimeout(timeoutId);
   }, [addressQuery, formData.address]);
 
-  // Handle when the user clicks a real address from the dropdown
   const handleSelectAddress = (result) => {
       setFormData({
           ...formData,
@@ -64,7 +57,6 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Safety check: Ensure they actually selected a verified address from the dropdown
     if (addressQuery !== formData.address) {
         return alert("Please select a verified address from the dropdown list before saving.");
     }
@@ -110,7 +102,6 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
             <input type="text" className="form-input" value={formData.courtName} onChange={(e) => setFormData({...formData, courtName: e.target.value})} required />
           </div>
 
-          {/* Address Autocomplete Input */}
           <div className="form-group" style={{ position: "relative" }}>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Street Address <span style={{ color: "var(--primary)", fontSize: "0.8em", fontWeight: "normal" }}>(Changes Map Pin)</span>
@@ -125,7 +116,6 @@ const EditGameModal = ({ game, onClose, onGameUpdated }) => {
             />
             {isSearchingAddress && <small style={{ color: "var(--text-light)", display: "block", marginTop: "5px" }}>Searching global map data...</small>}
             
-            {/* The Dropdown Menu for Search Results */}
             {addressResults.length > 0 && (
                 <ul style={{ 
                     position: "absolute", 

@@ -4,7 +4,6 @@ import DarkModeToggle from "../components/DarkModeToggle";
 import { useNavigate, Link } from "react-router-dom";
 
 const Login = () => {
-  // Initialise form state for authentication credentials
   const [formData, setFormData] = useState({
     email: "",
     password: ""
@@ -12,12 +11,12 @@ const Login = () => {
 
   const navigate = useNavigate();
 
-  // Update the document title for better browser accessibility
   useEffect(() => {
     document.title = "Login - CourtLink";
+    // Ping the backend as the page loads so it's warm by the time the user submits
+    axios.get(`${import.meta.env.VITE_API_URL}/health`).catch(() => {});
   }, []);
 
-  // Update the specific state field dynamically based on the input name attribute
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -26,18 +25,11 @@ const Login = () => {
     e.preventDefault();
     
     try {
-      // Authenticate the user against the backend API
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, formData);
-      
-      // Persist the JSON Web Token in local storage for session management
       localStorage.setItem("token", res.data.token);
-      
-      // Redirect the authenticated user to the main platform interface
       navigate("/dashboard");
-      
     } catch (err) {
       console.error("Authentication failed:", err);
-      // Safely extract the error message preferring the structured message object over raw strings
       const errorMessage = err.response?.data?.message || err.response?.data || "Login Failed";
       alert(errorMessage);
     }
@@ -86,8 +78,11 @@ const Login = () => {
           </form>
 
           <div style={{ marginTop: "25px", fontSize: "0.9em" }}>
-            <DarkModeToggle />
             New to CourtLink? <Link to="/register" style={{ color: "#ff5722", fontWeight: "bold", textDecoration: "none" }}>Create Account</Link>
+          </div>
+
+          <div style={{ marginTop: "15px" }}>
+            <DarkModeToggle />
           </div>
         </div>
       </div>

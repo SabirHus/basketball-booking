@@ -6,7 +6,6 @@ const { sendConfirmationEmail, sendCancellationEmail, sendKickedEmail, sendUpdat
 // 1. HOST A NEW GAME
 exports.hostGame = async (req, res) => {
     try {
-        // Normalise incoming payload data to handle potential frontend casing variations
         const courtName = req.body.court_name || req.body.courtName;
         const address = req.body.address || "Address not provided"; 
         const date = req.body.date_time || req.body.date;
@@ -15,25 +14,21 @@ exports.hostGame = async (req, res) => {
         const minPlayers = req.body.min_players || req.body.minPlayers;
         const { latitude, longitude, price } = req.body;
         
-        // Parse numerics safely applying defaults where necessary
         const finalPrice = price ? parseFloat(price) : 0;
         const finalMaxPlayers = maxPlayers ? parseInt(maxPlayers, 10) : 10;
         const finalMinPlayers = minPlayers ? parseInt(minPlayers, 10) : 4;
 
-        // Prevent users from scheduling games in the past
         const gameDate = new Date(date);
         if (gameDate < new Date()) {
             return res.status(400).json("Error: You cannot host a game in the past.");
         }
 
-        // Persist the game data into the relational database
         const newGame = await pool.query(
             `INSERT INTO games (host_id, court_name, address, latitude, longitude, date_time, skill_level, price, max_players, min_players, status) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open') RETURNING *`,
             [req.user.id, courtName, address, latitude, longitude, date, skillLevel, finalPrice, finalMaxPlayers, finalMinPlayers]
         );
         
-        // Automatically enrol the host as the first player in the roster
         await pool.query(
             "INSERT INTO game_players (game_id, user_id) VALUES ($1, $2)",
             [newGame.rows[0].game_id, req.user.id]
@@ -91,15 +86,12 @@ exports.joinGame = async (req, res) => {
             [gameId, req.user.id, sessionId || null]
         );
 
-        // Fetch user details for confirmation
         const userRes = await pool.query("SELECT username, email FROM users WHERE user_id = $1", [req.user.id]);
         const user = userRes.rows[0];
 
-        // Send confirmation email with the latest player count to the new joiner
         const newPlayerCount = parseInt(game.player_count, 10) + 1;
         sendConfirmationEmail(user.email, user.username, game.court_name, game.address, game.date_time, game.price, sessionId, newPlayerCount, game.min_players, game.max_players);
 
-        // If this specific user joining hits the minimum threshold exactly, email everyone on the roster!
         if (newPlayerCount === parseInt(game.min_players, 10)) {
             const roster = await pool.query(`
                 SELECT u.email, u.username 
@@ -125,7 +117,6 @@ exports.createCheckout = async (req, res) => {
         const { gameId } = req.params;
         const userId = req.user.id;
 
-        // Perform standard capacity and duplication checks before processing payment
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, userId]);
         if (check.rows.length > 0) return res.status(400).json("You have already joined this game.");
 
@@ -142,11 +133,9 @@ exports.createCheckout = async (req, res) => {
             return res.status(400).json("This game has reached maximum capacity.");
         }
 
-        // Stripe requires financial calculations to be processed in the smallest currency unit (pennies)
         const dbPrice = parseFloat(game.price);
         const stripePriceInPennies = Math.round(dbPrice * 100);
 
-        // Generate a secure Stripe hosted checkout session
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "payment",
@@ -158,7 +147,6 @@ exports.createCheckout = async (req, res) => {
                 },
                 quantity: 1,
             }],
-            // Embed the game ID and Stripe session ID in the success URL for post-payment processing on the frontend
             success_url: `${process.env.CLIENT_URL}/#/success?gameId=${gameId}&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/#/dashboard`, 
         });
@@ -175,7 +163,6 @@ exports.getMyGames = async (req, res) => {
     try {
         const hosted = await pool.query("SELECT * FROM games WHERE host_id = $1 ORDER BY date_time ASC", [req.user.id]);
         
-        // Added a LEFT JOIN to fetch the user's existing rating for each past game they joined
         const joined = await pool.query(`
             SELECT games.*, hr.rating AS my_rating
             FROM games 
@@ -209,17 +196,15 @@ exports.deleteGame = async (req, res) => {
             return res.status(403).json("Unauthorised. You can only delete your own games.");
         }
 
-        // Get all players on the roster to email them and process refunds
         const allPlayers = await pool.query(
             `SELECT gp.stripe_session_id, u.email, u.username 
              FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
              WHERE gp.game_id = $1 AND gp.user_id != $2`, 
-            [gameId, game.host_id] // Don't email the host about their own deletion
+            [gameId, game.host_id]
         );
 
         for (let player of allPlayers.rows) {
             let wasPaid = false;
-            // Process refund if they paid
             if (player.stripe_session_id) {
                 try {
                     const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
@@ -229,7 +214,6 @@ exports.deleteGame = async (req, res) => {
                     }
                 } catch (stripeErr) { console.error("Refund failed:", stripeErr.message); }
             }
-            // Send cancellation email
             sendCancellationEmail(player.email, player.username, game.court_name, game.date_time, wasPaid);
         }
 
@@ -293,7 +277,6 @@ exports.sendMessage = async (req, res) => {
         const { gameId } = req.params;
         const { message } = req.body;
         
-        // Only active roster members can broadcast messages to the lobby
         const check = await pool.query("SELECT * FROM game_players WHERE game_id = $1 AND user_id = $2", [gameId, req.user.id]);
         if (check.rows.length === 0) return res.status(403).json("Unauthorised. You must join the roster to chat.");
 
@@ -324,7 +307,6 @@ exports.rateHost = async (req, res) => {
             return res.status(400).json("Ratings cannot be submitted until the game has concluded.");
         }
 
-        // Check if the rater was a participant in the game to prevent fraudulent ratings
         const checkRating = await pool.query("SELECT * FROM host_ratings WHERE game_id = $1 AND rater_id = $2", [gameId, raterId]);
         
         if (checkRating.rows.length > 0) {
@@ -351,7 +333,6 @@ exports.getHostRating = async (req, res) => {
     try {
         const { hostId } = req.params;
         
-        // Compute the aggregate score dynamically directly within the SQL layer for efficiency
         const result = await pool.query(`
             SELECT ROUND(AVG(rating), 1) as avg_rating, COUNT(rating) as total_ratings 
             FROM host_ratings WHERE host_id = $1
@@ -369,12 +350,19 @@ exports.kickPlayer = async (req, res) => {
     try {
         const { gameId, playerId } = req.params;
         
+        const userQuery = await pool.query("SELECT is_admin FROM users WHERE user_id = $1", [req.user.id]);
         const gameQuery = await pool.query("SELECT host_id, court_name, date_time FROM games WHERE game_id = $1", [gameId]);
-        if (String(gameQuery.rows[0].host_id) !== String(req.user.id)) {
-            return res.status(403).json("Only the host can kick players.");
+
+        if (gameQuery.rows.length === 0) return res.status(404).json("Game not found.");
+
+        const isAdmin = userQuery.rows[0].is_admin;
+        const isHost = String(gameQuery.rows[0].host_id) === String(req.user.id);
+
+        // Admins and the host can both kick players
+        if (!isAdmin && !isHost) {
+            return res.status(403).json("Only the host or an admin can kick players.");
         }
 
-        // Get player details for refund and email
         const playerDetails = await pool.query(
             `SELECT gp.stripe_session_id, u.email, u.username 
              FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
@@ -386,7 +374,6 @@ exports.kickPlayer = async (req, res) => {
             const player = playerDetails.rows[0];
             let wasPaid = false;
 
-            // Issue refund if they paid
             if (player.stripe_session_id) {
                 try {
                     const session = await stripe.checkout.sessions.retrieve(player.stripe_session_id);
@@ -397,7 +384,6 @@ exports.kickPlayer = async (req, res) => {
                 } catch (err) { console.error("Refund failed for kicked player:", err.message); }
             }
 
-            // Send kicked email
             sendKickedEmail(player.email, player.username, gameQuery.rows[0].court_name, gameQuery.rows[0].date_time, wasPaid);
         }
 
@@ -415,14 +401,12 @@ exports.editGame = async (req, res) => {
         const { gameId } = req.params;
         const { court_name, address, date_time, skill_level, max_players, min_players, price, latitude, longitude } = req.body;
         
-        // 1. Fetch the OLD game details FIRST
         const oldGameRes = await pool.query("SELECT * FROM games WHERE game_id = $1 AND host_id = $2", [gameId, req.user.id]);
         if (oldGameRes.rows.length === 0) {
              return res.status(403).json("Unauthorised. Only the host can edit this game.");
         }
         const oldGame = oldGameRes.rows[0];
 
-        // 2. Update the game in the database
         const updatedGameRes = await pool.query(
             `UPDATE games 
              SET court_name = $1, address = $2, date_time = $3, skill_level = $4, 
@@ -432,7 +416,6 @@ exports.editGame = async (req, res) => {
         );
         const newGame = updatedGameRes.rows[0];
 
-        // 3. Fetch all players currently on the roster (excluding the host)
         const allPlayers = await pool.query(
             `SELECT u.email, u.username 
              FROM game_players gp JOIN users u ON gp.user_id = u.user_id 
@@ -440,7 +423,6 @@ exports.editGame = async (req, res) => {
             [gameId, req.user.id] 
         );
 
-        // 4. Send the comparison emails
         for (let player of allPlayers.rows) {
             sendUpdateEmail(player.email, player.username, court_name, oldGame, newGame);
         }
