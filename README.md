@@ -1,4 +1,4 @@
-<img width="1020" height="805" alt="Hosting a Game" src="https://github.com/user-attachments/assets/acdb4733-eeba-4ebe-927d-e11f75820c75" /># CourtLink
+CourtLink
 Live URL: https://thecourtlink.com/
 <img width="1645" height="1122" alt="image" src="https://github.com/user-attachments/assets/b29946a4-8047-4cef-bcad-3f0cc4237e80" />
 
@@ -86,7 +86,6 @@ The deployment pipeline was designed in such a way that it was highly available,
 
 ### Host / Admin Game View
 <img width="1911" height="1035" alt="Page for Hosts Looking at Game" src="https://github.com/user-attachments/assets/c60b2561-01fe-40a4-a82b-1ad8576624ca" />
-
 
 ### Player Game View (Join & Pay)
 <img width="972" height="901" alt="Page for New Users for Games" src="https://github.com/user-attachments/assets/fa7a9f3a-c5c4-419a-baf7-1c276c67908a" />
