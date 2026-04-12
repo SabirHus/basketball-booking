@@ -1,4 +1,4 @@
-# CourtLink
+<img width="1020" height="805" alt="Hosting a Game" src="https://github.com/user-attachments/assets/acdb4733-eeba-4ebe-927d-e11f75820c75" /># CourtLink
 Live URL: https://thecourtlink.com/
 <img width="1645" height="1122" alt="image" src="https://github.com/user-attachments/assets/b29946a4-8047-4cef-bcad-3f0cc4237e80" />
 
@@ -67,55 +67,56 @@ The deployment pipeline was designed in such a way that it was highly available,
 ## Screenshots
 
 ### Login Page
-![Login Page](screenshots/Main_Page_or_Login.png)
+<img width="1917" height="1021" alt="Main Page or Login" src="https://github.com/user-attachments/assets/8fff2c94-20b9-413c-ac86-6112fcd99b9d" />
 
 ### Register Account
-![Register Account](screenshots/Register_Account.png)
+<img width="1912" height="1028" alt="Register Account" src="https://github.com/user-attachments/assets/fe34be99-aa67-44a5-8aa3-341a79cff466" />
 
 ### Main Dashboard (Dark Mode)
-![Main Dashboard Dark Mode](screenshots/Main_Dashboard.png)
+<img width="1918" height="1030" alt="Main Dashboard" src="https://github.com/user-attachments/assets/941a00d8-6d16-4299-8fb9-3f051b0fb65c" />
 
 ### Main Dashboard (Light Mode)
-![Main Dashboard Light Mode](screenshots/Light_Mode.png)
+<img width="1915" height="1028" alt="Light Mode" src="https://github.com/user-attachments/assets/24b24270-7230-4a1a-8b1c-f666615c703a" />
 
 ### Hosting a Game
-![Hosting a Game](screenshots/Hosting_a_Game.png)
+<img width="1020" height="805" alt="Hosting a Game" src="https://github.com/user-attachments/assets/338ffa2b-4a39-4bb1-873e-4feba9a808a2" />
 
 ### Editing a Game
-![Editing a Game](screenshots/Editing_a_Game.png)
+<img width="442" height="458" alt="Editing a Game" src="https://github.com/user-attachments/assets/a8ea2711-3e0f-40ef-bea7-84bac13ad308" />
 
 ### Host / Admin Game View
-![Host Game View](screenshots/Page_for_Hosts_Looking_at_Game.png)
+<img width="1911" height="1035" alt="Page for Hosts Looking at Game" src="https://github.com/user-attachments/assets/c60b2561-01fe-40a4-a82b-1ad8576624ca" />
+
 
 ### Player Game View (Join & Pay)
-![Player Game View](screenshots/Page_for_New_Users_for_Games.png)
+<img width="972" height="901" alt="Page for New Users for Games" src="https://github.com/user-attachments/assets/fa7a9f3a-c5c4-419a-baf7-1c276c67908a" />
 
 ### Game is ON — Map Pin
-![Game ON Map Pin](screenshots/Game_On.png)
+<img width="203" height="147" alt="Game On" src="https://github.com/user-attachments/assets/a7d463a7-ddc3-47b8-999f-89530368d4ec" />
 
 ### Stripe Payment Checkout
-![Stripe Payment](screenshots/Stripe_Payment.png)
+<img width="1215" height="889" alt="Stripe Payment" src="https://github.com/user-attachments/assets/dc38059e-3057-47be-aa90-669076d891d1" />
 
 ### Payment Successful
-![Payment Successful](screenshots/Payment_Successful.png)
+<img width="518" height="442" alt="Payment Successful" src="https://github.com/user-attachments/assets/5aa6f0b3-0de5-4caf-8f89-f499e1ae6a0d" />
 
 ### Profile Page (Default Avatar)
-![Profile Page](screenshots/Profile_Page.png)
+<img width="1917" height="1032" alt="Profile Page" src="https://github.com/user-attachments/assets/da4ddcab-cc44-4096-a755-ffcedae15547" />
 
 ### Profile Page (Custom Avatar)
-![Profile Page with Avatar](screenshots/Profile_Pic.png)
+<img width="772" height="772" alt="Profile Pic" src="https://github.com/user-attachments/assets/9a9aa8c4-9dd4-4b3c-aaf5-87134b2b7d76" />
 
 ### Booking Confirmed Email
-![Booking Confirmed Email](screenshots/Booking_Confirmed_Email.png)
+<img width="436" height="569" alt="Booking Confirmed Email" src="https://github.com/user-attachments/assets/9ac429ad-2654-4bd1-901c-07b7d76cd10e" />
 
 ### Game is ON Email
-![Game ON Email](screenshots/Game_On_Email.png)
+<img width="451" height="225" alt="Game On Email" src="https://github.com/user-attachments/assets/1c80d915-373a-4480-b5b7-b209ea950546" />
 
 ### Game Details Updated Email (Diff Tracking)
-![Game Update Email](screenshots/Game_Update_Email.png)
+<img width="445" height="384" alt="Game Update Email" src="https://github.com/user-attachments/assets/98ce48cb-adc4-4c71-805b-29b2f711d997" />
 
 ### Game Cancelled & Refund Email
-![Game Cancelled Email](screenshots/Game_Cancelled_and_Refunds.png)
+<img width="595" height="306" alt="Game Cancelled and Refunds" src="https://github.com/user-attachments/assets/e84d8820-76e9-4cec-aa5c-46e63b4891f6" />
 
 ### Roster Update — Player Removed Email
-![Roster Update Email](screenshots/Roster_Update_when_users_get_removed.png)
+<img width="451" height="223" alt="Roster Update when users get removed" src="https://github.com/user-attachments/assets/9255488b-f337-46a2-962f-aea3b40039ed" />
